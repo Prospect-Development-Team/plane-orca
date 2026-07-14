@@ -5,7 +5,22 @@
  */
 
 import { observer } from "mobx-react";
+const prospectDevelopmentTeamLogo = "/plane-logos/pdt-logo.svg";
 
 export const WorkspaceEditionBadge = observer(function WorkspaceEditionBadge() {
-  return <></>;
+  return (
+    <a
+      href="https://github.com/Prospect-Development-Team"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 rounded-full px-3 py-1 transition-colors select-none hover:bg-layer-2"
+    >
+      <img
+        src={prospectDevelopmentTeamLogo}
+        alt="Prospect Development Team"
+        className="h-6 w-6 rounded-sm object-cover"
+      />
+      <span className="text-12 font-medium whitespace-nowrap text-[#D4AF37]">Prospect Development Team</span>
+    </a>
+  );
 });
