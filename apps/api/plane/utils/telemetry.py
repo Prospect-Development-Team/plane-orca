@@ -20,11 +20,7 @@ _TRACER_PROVIDER = None
 
 def init_tracer():
     """Initialize OpenTelemetry with proper shutdown handling"""
-    global _TRACER_PROVIDER
-
-    # If already initialized, return existing provider
-    if _TRACER_PROVIDER is not None:
-        return _TRACER_PROVIDER
+    return None
 
     # Configure the tracer provider
     service_name = os.environ.get("SERVICE_NAME", "plane-ce-api")
