@@ -63,6 +63,7 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
     onChange,
     onClose,
     onDropdownOpen,
+    placeholder,
     placement,
     renderByDefault = true,
     showDefaultState = true,
@@ -169,7 +170,7 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
             className={buttonClassName}
             isActive={isOpen}
             tooltipHeading={t("state")}
-            tooltipContent={selectedState?.name ?? t("state")}
+            tooltipContent={selectedState?.name ?? placeholder ?? t("state")}
             showTooltip={showTooltip}
             variant={buttonVariant}
             renderToolTipByDefault={renderByDefault}
@@ -187,7 +188,9 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
                   />
                 )}
                 {BUTTON_VARIANTS_WITH_TEXT.includes(buttonVariant) && (
-                  <span className="flex-grow truncate text-left">{selectedState?.name ?? t("state")}</span>
+                  <span className="flex-grow truncate text-left">
+                    {selectedState?.name ?? placeholder ?? t("state")}
+                  </span>
                 )}
                 {dropdownArrow && (
                   <ChevronDownIcon
@@ -204,6 +207,7 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
   );
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <ComboDropDown
       as="div"
       ref={dropdownRef}

@@ -30,6 +30,10 @@ import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { IssueBulkOperationsRoot } from "@/plane-web/components/issues/bulk-operations";
 // plane web hooks
 import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-status";
+// hooks
+import { useMultipleSelectStore } from "@/hooks/store/use-multiple-select-store";
+// helpers
+import { cn } from "@plane/utils";
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
@@ -84,6 +88,7 @@ export const List = observer(function List(props: IList) {
   const storeType = useIssueStoreType();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
+  const { isSelectionActive } = useMultipleSelectStore();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -111,7 +116,7 @@ export const List = observer(function List(props: IList) {
 
   const getGroupIndex = (groupId: string | undefined) => groups.findIndex(({ id }) => id === groupId);
 
-  const is_list = group_by === null ? true : false;
+  const is_list = group_by === null;
 
   // create groupIds array and entities object for bulk ops
   const groupIds = groups.map((g) => g.id);
@@ -140,7 +145,10 @@ export const List = observer(function List(props: IList) {
             <>
               <div
                 ref={containerRef}
-                className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
+                className={cn(
+                  "vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1 transition-all duration-300",
+                  isSelectionActive ? "pb-[4.5rem]" : "pb-0"
+                )}
               >
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
@@ -172,7 +180,10 @@ export const List = observer(function List(props: IList) {
                 ))}
               </div>
 
-              <IssueBulkOperationsRoot selectionHelpers={helpers} />
+              <IssueBulkOperationsRoot
+                selectionHelpers={helpers}
+                wrapperClassName="!bottom-0 !left-0 !w-full !translate-x-0 bg-surface-1 px-8 pb-4 pt-3"
+              />
             </>
           )}
         </MultipleSelectGroup>

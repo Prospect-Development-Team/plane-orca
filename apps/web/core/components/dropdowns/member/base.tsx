@@ -88,22 +88,27 @@ export const MemberDropdownBase = observer(function MemberDropdownBase(props: TM
     if (!multiple) handleClose();
   };
 
-  const getDisplayName = (value: string | string[] | null, showUserDetails: boolean, placeholder: string = "") => {
-    if (Array.isArray(value)) {
-      if (value.length > 0) {
-        if (value.length === 1) {
-          return getUserDetails(value[0])?.display_name || placeholder;
+  const getDisplayName = (
+    memberValue: string | string[] | null,
+    showDetails: boolean,
+    displayPlaceholder: string = ""
+  ) => {
+    if (Array.isArray(memberValue)) {
+      if (memberValue.length > 0) {
+        if (memberValue.length === 1) {
+          return getUserDetails(memberValue[0])?.display_name || displayPlaceholder;
         } else {
-          return showUserDetails ? `${value.length} ${t("members").toLocaleLowerCase()}` : "";
+          const firstDisplayName = getUserDetails(memberValue[0])?.display_name || t("member");
+          return `${firstDisplayName} +${memberValue.length - 1}`;
         }
       } else {
-        return placeholder;
+        return displayPlaceholder;
       }
     } else {
-      if (showUserDetails && value) {
-        return getUserDetails(value)?.display_name || placeholder;
+      if (showDetails && memberValue) {
+        return getUserDetails(memberValue)?.display_name || displayPlaceholder;
       } else {
-        return placeholder;
+        return displayPlaceholder;
       }
     }
   };
@@ -164,6 +169,7 @@ export const MemberDropdownBase = observer(function MemberDropdownBase(props: TM
   );
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <ComboDropDown
       as="div"
       ref={dropdownRef}
