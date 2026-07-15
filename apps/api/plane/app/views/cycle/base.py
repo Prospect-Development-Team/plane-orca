@@ -151,6 +151,12 @@ class CycleViewSet(BaseViewSet):
             )
             .annotate(
                 status=Case(
+                    # Orca Custom Override: A cycle with start_date set and no end_date is CURRENT (manually started).
+                    # This allows cycles to be started without an end date, remaining active until explicitly ended.
+                    When(
+                        Q(start_date__lte=current_time_in_utc) & Q(end_date__isnull=True),
+                        then=Value("CURRENT"),
+                    ),
                     When(
                         Q(start_date__lte=current_time_in_utc) & Q(end_date__gte=current_time_in_utc),
                         then=Value("CURRENT"),
@@ -201,8 +207,12 @@ class CycleViewSet(BaseViewSet):
         current_time_in_utc = current_time_in_project_tz.astimezone(pytz.utc)
 
         # Current Cycle
+        # Orca Custom Override: Also include cycles started with no end_date (manually started, running indefinitely).
         if cycle_view == "current":
-            queryset = queryset.filter(start_date__lte=current_time_in_utc, end_date__gte=current_time_in_utc)
+            queryset = queryset.filter(
+                Q(start_date__lte=current_time_in_utc, end_date__gte=current_time_in_utc)
+                | Q(start_date__lte=current_time_in_utc, end_date__isnull=True)
+            )
 
             data = queryset.values(
                 # necessary fields
@@ -269,11 +279,18 @@ class CycleViewSet(BaseViewSet):
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def create(self, request, slug, project_id):
-        if (request.data.get("start_date", None) is None and request.data.get("end_date", None) is None) or (
-            request.data.get("start_date", None) is not None and request.data.get("end_date", None) is not None
-        ):
-            serializer = CycleWriteSerializer(data=request.data, context={"project_id": project_id})
-            if serializer.is_valid():
+        # Orca Custom Override: Allow cycles with only a start_date (no end_date) to support
+        # the manual start flow — cycles can be started without committing to an end date.
+        # Original check required both dates to be present or both null.
+        start_date = request.data.get("start_date", None)
+        end_date = request.data.get("end_date", None)
+        if end_date is not None and start_date is None:
+            return Response(
+                {"error": "A start date is required when an end date is provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = CycleWriteSerializer(data=request.data, context={"project_id": project_id})
+        if serializer.is_valid():
                 serializer.save(project_id=project_id, owned_by=request.user)
                 cycle = (
                     self.get_queryset()
@@ -325,12 +342,8 @@ class CycleViewSet(BaseViewSet):
                     origin=base_host(request=request, is_app=True),
                 )
                 return Response(cycle, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(
-                {"error": "Both start date and end date are either required or are to be null"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def partial_update(self, request, slug, project_id, pk):
@@ -346,6 +359,8 @@ class CycleViewSet(BaseViewSet):
 
         request_data = request.data
 
+        # Guard: prevent editing an already-completed cycle (end_date in the past).
+        # The End Cycle action sets end_date on a cycle whose end_date is currently NULL, so it is not blocked here.
         if cycle.end_date is not None and cycle.end_date < timezone.now():
             if "sort_order" in request_data:
                 # Can only change sort order for a completed cycle``

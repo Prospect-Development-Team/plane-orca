@@ -4,13 +4,14 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowRight } from "lucide-react";
 // Plane Imports
 import { CYCLE_STATUS, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
+import { Button } from "@plane/propel/button";
 import { ChevronRightIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { ICycle } from "@plane/types";
@@ -24,6 +25,8 @@ import { useUserPermissions } from "@/hooks/store/user";
 import { useTimeZoneConverter } from "@/hooks/use-timezone-converter";
 // services
 import { CycleService } from "@/services/cycle.service";
+// local imports
+import { CycleStartStopModal } from "@/components/cycles/cycle-start-stop-modal";
 
 type Props = {
   workspaceSlug: string;
@@ -66,6 +69,14 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
 
   const cycleStatus = cycleDetails?.status?.toLocaleLowerCase();
   const isCompleted = cycleStatus === "completed";
+  const isCurrent = cycleStatus === "current";
+  const isDraftOrUpcoming = cycleStatus === "draft" || cycleStatus === "upcoming";
+
+  /**
+   * Orca Custom: Controls the shared Start/End modal in the sidebar header.
+   * null = closed; "start" | "end" = modal open in that mode.
+   */
+  const [startStopModal, setStartStopModal] = useState<"start" | "end" | null>(null);
 
   const currentCycle = CYCLE_STATUS.find((status) => status.value === cycleStatus);
 
@@ -148,17 +159,31 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
       <div className="flex w-full flex-col gap-2">
         <div className="flex items-start justify-between gap-3 pt-2">
           <h4 className="w-full text-18 font-semibold break-words text-primary">{cycleDetails.name}</h4>
-          {currentCycle && (
-            <span
-              className="flex h-6 min-w-20 items-center justify-center truncate rounded-sm px-3 text-center text-11 font-medium whitespace-nowrap"
-              style={{
-                color: currentCycle.color,
-                backgroundColor: `${currentCycle.color}20`,
-              }}
-            >
-              {t(currentCycle.i18n_title)}
-            </span>
-          )}
+          <div className="flex flex-shrink-0 items-center gap-1">
+            {currentCycle && (
+              <span
+                className="flex h-6 min-w-20 items-center justify-center truncate rounded-sm px-3 text-center text-11 font-medium whitespace-nowrap"
+                style={{
+                  color: currentCycle.color,
+                  backgroundColor: `${currentCycle.color}20`,
+                }}
+              >
+                {t(currentCycle.i18n_title)}
+              </span>
+            )}
+            {/* Orca Custom: Start Cycle button — shown for draft/upcoming cycles */}
+            {isEditingAllowed && !isArchived && isDraftOrUpcoming && (
+              <Button variant="primary" size="sm" onClick={() => setStartStopModal("start")}>
+                Start Cycle
+              </Button>
+            )}
+            {/* Orca Custom: Complete Cycle button — shown for active (current) cycles */}
+            {isEditingAllowed && !isArchived && isCurrent && (
+              <Button variant="primary" size="sm" onClick={() => setStartStopModal("end")}>
+                Complete Cycle
+              </Button>
+            )}
+          </div>
         </div>
 
         <Controller
@@ -213,6 +238,17 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
           )}
         />
       </div>
+      {/* Orca Custom: Shared Start/End confirmation modal triggered from sidebar header */}
+      {startStopModal && !isArchived && (
+        <CycleStartStopModal
+          isOpen
+          mode={startStopModal}
+          cycleDetails={cycleDetails}
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          handleClose={() => setStartStopModal(null)}
+        />
+      )}
     </>
   );
 });

@@ -88,6 +88,9 @@ export interface ICycleStore {
     data: Partial<ICycle>
   ) => Promise<ICycle>;
   deleteCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<void>;
+  // manual start / stop (orca)
+  startCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<ICycle>;
+  endCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<ICycle>;
   // favorites
   addCycleToFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<any>;
   removeCycleFromFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<void>;
@@ -193,7 +196,9 @@ export class CycleStore implements ICycleStore {
   }
 
   /**
-   * returns all incomplete cycle ids for a project
+   * @description Returns all incomplete cycle IDs for a project (not completed, not archived).
+   * Orca Custom Override: Excludes cycles with status 'current' so that manually-started cycles
+   * (which have start_date set but no end_date) do not appear in the upcoming/incomplete list.
    */
   get currentProjectIncompleteCycleIds() {
     const projectId = this.rootStore.router.projectId;
@@ -202,7 +207,12 @@ export class CycleStore implements ICycleStore {
       const endDate = getDate(c.end_date);
       const hasEndDatePassed = endDate && isPast(endDate);
       return (
-        c.project_id === projectId && !hasEndDatePassed && !c?.archived_at && c.status?.toLowerCase() !== "completed"
+        c.project_id === projectId &&
+        !hasEndDatePassed &&
+        !c?.archived_at &&
+        c.status?.toLowerCase() !== "completed" &&
+        // Exclude manually-started active cycles (they appear in the active section instead)
+        c.status?.toLowerCase() !== "current"
       );
     });
     incompleteCycles = sortBy(incompleteCycles, [(c) => c.sort_order]);
@@ -646,6 +656,32 @@ export class CycleStore implements ICycleStore {
       delete this.activeCycleIdMap[cycleId];
       if (this.rootStore.favorite.entityMap[cycleId]) this.rootStore.favorite.removeFavoriteFromStore(cycleId);
     });
+  };
+
+  /**
+   * @description Orca Custom: Manually starts a cycle by setting start_date to today.
+   * Moves the cycle from upcoming/draft to active (CURRENT) status without requiring an end date.
+   * @param workspaceSlug
+   * @param projectId
+   * @param cycleId
+   * @returns updated ICycle
+   */
+  startCycle = async (workspaceSlug: string, projectId: string, cycleId: string): Promise<ICycle> => {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    return this.updateCycleDetails(workspaceSlug, projectId, cycleId, { start_date: today });
+  };
+
+  /**
+   * @description Orca Custom: Manually ends a cycle by setting end_date to today.
+   * Moves the cycle from active (CURRENT) to COMPLETED status.
+   * @param workspaceSlug
+   * @param projectId
+   * @param cycleId
+   * @returns updated ICycle
+   */
+  endCycle = async (workspaceSlug: string, projectId: string, cycleId: string): Promise<ICycle> => {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    return this.updateCycleDetails(workspaceSlug, projectId, cycleId, { end_date: today });
   };
 
   /**
