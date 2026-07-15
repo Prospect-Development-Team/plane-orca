@@ -19,7 +19,10 @@ _TRACER_PROVIDER = None
 
 
 def init_tracer():
-    """Initialize OpenTelemetry with proper shutdown handling"""
+    """
+    Initialize OpenTelemetry with proper shutdown handling.
+    Custom override: Disabled telemetry/tracing in Orca fork by immediately returning None.
+    """
     return None
 
     # Configure the tracer provider

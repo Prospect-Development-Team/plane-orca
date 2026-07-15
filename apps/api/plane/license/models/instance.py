@@ -32,6 +32,7 @@ class Instance(BaseModel):
     last_checked_at = models.DateTimeField()
     namespace = models.CharField(max_length=255, blank=True, null=True)
     # telemetry and support
+    # Custom override: telemetry is disabled by default (False) in Orca fork
     is_telemetry_enabled = models.BooleanField(default=False)
     is_support_required = models.BooleanField(default=True)
     # is setup done
