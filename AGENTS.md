@@ -25,6 +25,7 @@
 - **Testing**: All features require unit tests, use existing test framework per package
 - **Components**: Build in `@plane/ui` with Storybook for isolated development
 - **Copyright Headers**: All new Python/TS/TSX files must include the standard copyright header via `addlicense` (see [COPYRIGHT_CHECK.md](./COPYRIGHT_CHECK.md)).
+- **Documentation & Comments**: Write clear, easy-to-understand JSDoc comments or docstrings for all modifications. Ensure they match existing codebase formats (e.g. using `@description`, `@param`, `@returns` structures). Never delete or omit existing JSDoc comments/docstrings when refactoring or modifying code. Always comment custom overrides, sidecar functions, and parallel cycle changes clearly to guide subsequent developers and AI agents.
 
 ## Fork & Customization Strategy
 
@@ -52,5 +53,6 @@ All changes must follow the upstream compatibility model detailed in [FORK.md](.
 
 ## Token Efficiency & Command Guidelines
 
-- **Minimize Output**: To conserve token usage, avoid running commands that generate large volumes of terminal output (e.g. `pnpm check`, long builds, full tests) directly through the agent context unless strictly necessary. Instead, the agent should list the commands for the developer to run locally.
-- **Database Migrations**: When changes involve Django database models or backend updates that require schema changes, always remind the user to run the migration commands (e.g., `python apps/api/manage.py migrate` or similar docker-compose commands).
+- **Always Prefer Local Execution**: To conserve token usage and maintain developer control, **never** run commands that generate large volumes of terminal output or perform heavy processing (e.g., `pnpm check`, `pnpm check:types`, `pnpm build`, full tests, or django database migrations) directly through the agent context or as background tasks.
+- **Provide Actionable Commands**: Instead, the agent must list the exact commands and instructions clearly for the developer to run locally.
+- **Database Migrations**: When database schema updates are made, always remind the developer of the exact commands needed (e.g., `docker compose exec api python manage.py migrate` or `python apps/api/manage.py migrate`) to apply them.

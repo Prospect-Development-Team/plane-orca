@@ -73,6 +73,7 @@ All custom code must pass validation before commits or merges:
 
 - **Frontend**: Format using `oxfmt` (`pnpm fix:format`) and lint using `oxlint` with shared config (`.oxlintrc.json`). Avoid introducing lint bypasses unless strictly justified.
 - **Backend (Python)**: Format and lint using `ruff` (configured in `apps/api/pyproject.toml` with `line-length = 120` and double quotes).
+- **Token Efficiency (Agents)**: Agents must **never** run heavy validation commands (e.g. full workspace type-checks, builds, or database migrations) directly in the workspace. They must provide the commands for developers to run locally.
 
 ### C. License & Copyright Header Compliance
 
@@ -86,6 +87,14 @@ The Plane codebase enforces copyright headers. When creating new Python, TS, or 
   ```bash
   addlicense -v -f COPYRIGHT.txt -ignore "**/*.config.ts" -ignore "**/*.d.ts" $(git ls-files 'packages/<package-name>/*.ts')
   ```
+
+### D. Documentation & Comments
+
+To maintain a clean and maintainable codebase:
+
+- **JSDoc/Docstring Formats**: Write clear, easy-to-understand JSDoc comments or docstrings for all modifications. Ensure they match existing codebase formats (e.g. using `@description`, `@param`, `@returns` structures).
+- **Preserve Existing Documentation**: Never delete or omit existing JSDoc comments/docstrings when refactoring or modifying code.
+- **Guidance for Agents & Users**: Clearly comment custom overrides, sidecar functions, and parallel cycle changes to guide subsequent developers and AI agents on what was done and why.
 
 ---
 
