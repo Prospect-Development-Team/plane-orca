@@ -224,6 +224,9 @@ export class CycleStore implements ICycleStore {
     return activeCycle || null;
   }
 
+  /**
+   * Orca Custom Override: returns all active parallel cycle ids for a project
+   */
   get currentProjectActiveCycleIds() {
     const projectId = this.rootStore.router.projectId;
     if (!projectId) return [];
@@ -248,6 +251,9 @@ export class CycleStore implements ICycleStore {
     return archivedCycleIds;
   }
 
+  /**
+   * returns active cycle details for a project (falls back to the first active cycle)
+   */
   get currentProjectActiveCycle() {
     const projectId = this.rootStore.router.projectId;
     if (!projectId || !this.currentProjectActiveCycleId) return null;

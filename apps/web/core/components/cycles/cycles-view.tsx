@@ -31,6 +31,7 @@ export const CyclesView = observer(function CyclesView(props: ICyclesView) {
   // derived values
   const filteredCycleIds = getFilteredCycleIds(projectId, false);
   const filteredCompletedCycleIds = getFilteredCompletedCycleIds(projectId);
+  // Orca Custom Override: Exclude all active parallel cycles from the upcoming cycles list
   const filteredUpcomingCycleIds = (filteredCycleIds ?? []).filter(
     (cycleId) => !currentProjectActiveCycleIds.includes(cycleId)
   );
