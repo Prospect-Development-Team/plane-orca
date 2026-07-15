@@ -19,6 +19,7 @@ import { getDate, renderFormattedPayloadDate } from "@plane/utils";
 import { DateRangeDropdown } from "@/components/dropdowns/date-range";
 // hooks
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useProject } from "@/hooks/store/use-project";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useTimeZoneConverter } from "@/hooks/use-timezone-converter";
 // services
@@ -42,9 +43,13 @@ const cycleService = new CycleService();
 export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Props) {
   const { workspaceSlug, projectId, cycleDetails, handleClose, isArchived = false } = props;
   // hooks
+  const { getProjectById } = useProject();
   const { allowPermissions } = useUserPermissions();
   const { updateCycleDetails } = useCycle();
   const { t } = useTranslation();
+
+  const projectDetails = getProjectById(projectId);
+  const parallelCyclesEnabled = !!projectDetails?.parallel_cycles;
   const { renderFormattedDateInUserTimezone, getProjectUTCOffset } = useTimeZoneConverter(projectId);
 
   // derived values
@@ -90,10 +95,14 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
     };
 
     if (payload?.start_date && payload.end_date) {
-      isDateValid = await dateChecker({
-        ...payload,
-        cycle_id: cycleDetails.id,
-      });
+      if (parallelCyclesEnabled) {
+        isDateValid = true;
+      } else {
+        isDateValid = await dateChecker({
+          ...payload,
+          cycle_id: cycleDetails.id,
+        });
+      }
     } else {
       isDateValid = true;
     }

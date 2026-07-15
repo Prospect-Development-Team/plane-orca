@@ -24,6 +24,7 @@ import { CycleListGroupHeader } from "@/components/cycles/list/cycle-list-group-
 import { CyclesListItem } from "@/components/cycles/list/cycles-list-item";
 // hooks
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useProject } from "@/hooks/store/use-project";
 import type { ActiveCycleIssueDetails } from "@/store/issue/cycle";
 
 interface IActiveCycleDetails {
@@ -97,6 +98,36 @@ const ActiveCyclesComponent = observer(function ActiveCyclesComponent({
   );
 });
 
+const ActiveCycleItemWrapper = observer(function ActiveCycleItemWrapper({
+  workspaceSlug,
+  projectId,
+  cycleId,
+  activeCycleResolvedPath,
+}: {
+  workspaceSlug: string;
+  projectId: string;
+  cycleId: string;
+  activeCycleResolvedPath: string;
+}) {
+  const {
+    handleFiltersUpdate,
+    cycle: activeCycle,
+    cycleIssueDetails,
+  } = useCyclesDetails({ workspaceSlug, projectId, cycleId });
+
+  return (
+    <ActiveCyclesComponent
+      cycleId={cycleId}
+      activeCycle={activeCycle}
+      activeCycleResolvedPath={activeCycleResolvedPath}
+      workspaceSlug={workspaceSlug}
+      projectId={projectId}
+      handleFiltersUpdate={handleFiltersUpdate}
+      cycleIssueDetails={cycleIssueDetails}
+    />
+  );
+});
+
 export const ActiveCycleRoot = observer(function ActiveCycleRoot(props: IActiveCycleDetails) {
   const { workspaceSlug, projectId, cycleId: propsCycleId, showHeader = true } = props;
   // theme hook
@@ -104,16 +135,32 @@ export const ActiveCycleRoot = observer(function ActiveCycleRoot(props: IActiveC
   // plane hooks
   const { t } = useTranslation();
   // store hooks
-  const { currentProjectActiveCycleId } = useCycle();
-  // derived values
-  const cycleId = propsCycleId ?? currentProjectActiveCycleId;
+  const { currentProjectActiveCycleId, currentProjectActiveCycleIds } = useCycle();
+  const { getProjectById } = useProject();
+
+  const projectDetails = getProjectById(projectId);
+  const parallelCyclesEnabled = !!projectDetails?.parallel_cycles;
+
   const activeCycleResolvedPath = resolvedTheme === "light" ? lightActiveCycleAsset : darkActiveCycleAsset;
-  // fetch cycle details
-  const {
-    handleFiltersUpdate,
-    cycle: activeCycle,
-    cycleIssueDetails,
-  } = useCyclesDetails({ workspaceSlug, projectId, cycleId });
+
+  const activeCycleIds: string[] = propsCycleId
+    ? [propsCycleId]
+    : parallelCyclesEnabled
+      ? currentProjectActiveCycleIds
+      : currentProjectActiveCycleId
+        ? [currentProjectActiveCycleId]
+        : [];
+
+  if (activeCycleIds.length === 0) {
+    return (
+      <EmptyStateDetailed
+        assetKey="cycle"
+        title={t("project_cycles.empty_state.active.title")}
+        description={t("project_cycles.empty_state.active.description")}
+        rootClassName="py-10 h-auto"
+      />
+    );
+  }
 
   return (
     <>
@@ -125,29 +172,33 @@ export const ActiveCycleRoot = observer(function ActiveCycleRoot(props: IActiveC
                 <CycleListGroupHeader title={t("project_cycles.active_cycle.label")} type="current" isExpanded={open} />
               </Disclosure.Button>
               <Disclosure.Panel>
-                <ActiveCyclesComponent
-                  cycleId={cycleId}
-                  activeCycle={activeCycle}
-                  activeCycleResolvedPath={activeCycleResolvedPath}
-                  workspaceSlug={workspaceSlug}
-                  projectId={projectId}
-                  handleFiltersUpdate={handleFiltersUpdate}
-                  cycleIssueDetails={cycleIssueDetails}
-                />
+                <div className="flex flex-col gap-6">
+                  {activeCycleIds.map((id) => (
+                    <ActiveCycleItemWrapper
+                      key={id}
+                      workspaceSlug={workspaceSlug}
+                      projectId={projectId}
+                      cycleId={id}
+                      activeCycleResolvedPath={activeCycleResolvedPath}
+                    />
+                  ))}
+                </div>
               </Disclosure.Panel>
             </>
           )}
         </Disclosure>
       ) : (
-        <ActiveCyclesComponent
-          cycleId={cycleId}
-          activeCycle={activeCycle}
-          activeCycleResolvedPath={activeCycleResolvedPath}
-          workspaceSlug={workspaceSlug}
-          projectId={projectId}
-          handleFiltersUpdate={handleFiltersUpdate}
-          cycleIssueDetails={cycleIssueDetails}
-        />
+        <div className="flex flex-col gap-6">
+          {activeCycleIds.map((id) => (
+            <ActiveCycleItemWrapper
+              key={id}
+              workspaceSlug={workspaceSlug}
+              projectId={projectId}
+              cycleId={id}
+              activeCycleResolvedPath={activeCycleResolvedPath}
+            />
+          ))}
+        </div>
       )}
     </>
   );

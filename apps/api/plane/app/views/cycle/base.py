@@ -520,6 +520,12 @@ class CycleViewSet(BaseViewSet):
 class CycleDateCheckEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def post(self, request, slug, project_id):
+        project = Project.objects.filter(pk=project_id).first()
+        if project:
+            custom_settings = getattr(project, "custom_settings", None)
+            if custom_settings and custom_settings.parallel_cycles:
+                return Response({"status": True}, status=status.HTTP_200_OK)
+
         start_date = request.data.get("start_date", False)
         end_date = request.data.get("end_date", False)
         cycle_id = request.data.get("cycle_id")
