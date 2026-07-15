@@ -88,6 +88,10 @@ export const MemberDropdownBase = observer(function MemberDropdownBase(props: TM
     if (!multiple) handleClose();
   };
 
+  /**
+   * @description Orca Custom Helper: Computes the display name for selected members.
+   * If multiple members are selected, formats the display as "First Member Name +Count" (e.g. "John Doe +2").
+   */
   const getDisplayName = (
     memberValue: string | string[] | null,
     showDetails: boolean,

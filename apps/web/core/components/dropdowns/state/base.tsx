@@ -44,6 +44,10 @@ export type TWorkItemStateDropdownBaseProps = TDropdownProps & {
   value: string | undefined | null;
 };
 
+/**
+ * @description Dropdown component for selecting issue states.
+ * Custom behavior: Added support for a `placeholder` prop to show fallback labels (e.g. for mixed states).
+ */
 export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdownBase(
   props: TWorkItemStateDropdownBaseProps
 ) {

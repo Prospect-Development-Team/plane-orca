@@ -670,7 +670,7 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
   }
 
   /**
-   * This is a method to delete issues in bulk
+   * @description Orca Custom Override: Delete issues in bulk.
    * @param workspaceSlug
    * @param projectId
    * @param issueIds
@@ -692,7 +692,7 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
   }
 
   /**
-   * Bulk Archive issues
+   * @description Orca Custom Override: Bulk Archive issues.
    * @param workspaceSlug
    * @param projectId
    * @param issueIds
@@ -719,7 +719,7 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
   archiveBulkIssues = this.bulkArchiveIssues;
 
   /**
-   * @description bulk update properties of selected issues
+   * @description Orca Custom Override: Bulk update properties of selected issues.
    * @param {TBulkOperationsPayload} data
    */
   bulkUpdateProperties = async (workspaceSlug: string, projectId: string, data: TBulkOperationsPayload) => {

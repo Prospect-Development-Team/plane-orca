@@ -26,6 +26,10 @@ type ModuleButtonContentProps = {
   className?: string;
 };
 
+/**
+ * @description Renders the content of the module dropdown button.
+ * Custom behavior: Formats multiple selected module displays with "+Count" suffix (e.g. "Module Name +1").
+ */
 export function ModuleButtonContent(props: ModuleButtonContentProps) {
   const {
     disabled,

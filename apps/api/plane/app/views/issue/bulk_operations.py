@@ -32,11 +32,19 @@ from plane.bgtasks.issue_activities_task import issue_activity
 
 
 class BulkIssueOperationsEndpoint(BaseAPIView):
+    """
+    Orca Custom Endpoint:
+    Provides a bulk update operations API for issue fields (priority, state, dates, etc.),
+    as well as labels, assignees, cycle, and module associations.
+    """
     permission_classes = [
         ProjectEntityPermission,
     ]
 
     def post(self, request, slug, project_id):
+        """
+        Processes a bulk operation request for a set of issue IDs in a project.
+        """
         issue_ids = request.data.get("issue_ids", [])
         if not len(issue_ids):
             return Response(
