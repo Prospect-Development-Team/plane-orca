@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { XCircle, ArchiveRestoreIcon } from "lucide-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -12,7 +12,8 @@ import { LinkIcon, CopyIcon, NewTabIcon, EditIcon, ArchiveIcon, TrashIcon } from
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EIssuesStoreType, TIssue } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
-import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
+import { copyUrlToClipboard, generateWorkItemLink, copyTextToClipboard, sanitizeHTML } from "@plane/utils";
+import { IssueService } from "@/services/issue";
 // types
 import { createCopyMenuWithDuplication } from "@/plane-web/components/issues/issue-layouts/quick-action-dropdowns";
 
@@ -112,21 +113,80 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
       handleOptionalAction(handleRestore, "Restore");
       return;
     }
-    await handleRestore()
-      .then(() => {
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: "Restore success",
-          message: "Your work item can be found in project work items.",
-        });
-      })
-      .catch(() => {
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: "Work item could not be restored. Please try again.",
-        });
+    try {
+      await handleRestore();
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Restore success",
+        message: "Your work item can be found in project work items.",
       });
+    } catch {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: "Work item could not be restored. Please try again.",
+      });
+    }
+  };
+
+  const getOrFetchDescription = async (): Promise<string> => {
+    if (issue?.description_html !== undefined) {
+      return sanitizeHTML(issue.description_html);
+    }
+    if (!workspaceSlug || !issue?.project_id || !issue?.id) {
+      return "";
+    }
+    try {
+      const issueService = new IssueService();
+      const fullIssue = await issueService.retrieve(workspaceSlug, issue.project_id, issue.id);
+      return sanitizeHTML(fullIssue?.description_html || "");
+    } catch (e) {
+      console.error("Failed to fetch issue description", e);
+      return "";
+    }
+  };
+
+  const handleCopyIssueTitle = () =>
+    copyTextToClipboard(issue?.name || "").then(() =>
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Title copied",
+        message: "Work item title copied to clipboard",
+      })
+    );
+
+  const handleCopyIssueDescription = async () => {
+    const descriptionText = await getOrFetchDescription();
+    if (descriptionText === "") {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "No description",
+        message: "This work item has no description.",
+      });
+      return;
+    }
+    return copyTextToClipboard(descriptionText).then(() =>
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Description copied",
+        message: "Work item description copied to clipboard",
+      })
+    );
+  };
+
+  const handleCopyIssueTitleAndDescription = async () => {
+    const titleText = issue?.name || "";
+    const descriptionText = await getOrFetchDescription();
+    const textToCopy = descriptionText ? `${titleText}\n\n${descriptionText}` : titleText;
+    return copyTextToClipboard(textToCopy).then(() =>
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: descriptionText ? "Title & description copied" : "Title copied",
+        message: descriptionText
+          ? "Work item title & description copied to clipboard"
+          : "Work item title copied to clipboard",
+      })
+    );
   };
 
   return {
@@ -134,6 +194,9 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     handleCopyIssueLink,
     handleOpenInNewTab,
     handleIssueRestore,
+    handleCopyIssueTitle,
+    handleCopyIssueDescription,
+    handleCopyIssueTitleAndDescription,
   };
 };
 
@@ -205,6 +268,48 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     action: actionHandlers.handleCopyIssueLink,
   });
 
+  const createCopySubmenuItem = (): TContextMenuItem => {
+    const isLoadedAndEmpty = issue?.description_html !== undefined && sanitizeHTML(issue.description_html) === "";
+    if (isLoadedAndEmpty) {
+      return {
+        key: "copy-title",
+        title: t("common.actions.copy_title") || "Copy title",
+        icon: CopyIcon,
+        action: actionHandlers.handleCopyIssueTitle,
+        shouldRender: true,
+      };
+    }
+    return {
+      key: "copy-submenu",
+      title: t("common.actions.copy_details") || "Copy details",
+      icon: CopyIcon,
+      action: () => {},
+      nestedMenuItems: [
+        {
+          key: "copy-title",
+          title: t("common.actions.copy_title") || "Copy title",
+          icon: CopyIcon,
+          action: actionHandlers.handleCopyIssueTitle,
+          shouldRender: true,
+        },
+        {
+          key: "copy-description",
+          title: t("common.actions.copy_description") || "Copy description",
+          icon: CopyIcon,
+          action: actionHandlers.handleCopyIssueDescription,
+          shouldRender: true,
+        },
+        {
+          key: "copy-title-and-description",
+          title: t("common.actions.copy_title_and_description") || "Copy title & description",
+          icon: CopyIcon,
+          action: actionHandlers.handleCopyIssueTitleAndDescription,
+          shouldRender: true,
+        },
+      ],
+    };
+  };
+
   const createRemoveFromCycleMenuItem = (): TContextMenuItem => ({
     key: "remove-from-cycle",
     title: "Remove from cycle",
@@ -257,6 +362,7 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     createCopyMenuItem,
     createOpenInNewTabMenuItem,
     createCopyLinkMenuItem,
+    createCopySubmenuItem,
     createRemoveFromCycleMenuItem,
     createRemoveFromModuleMenuItem,
     createArchiveMenuItem,
@@ -275,6 +381,7 @@ export const useProjectIssueMenuItems = (props: MenuItemFactoryProps): TContextM
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopySubmenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -289,11 +396,13 @@ export const useWorkItemDetailMenuItems = (props: MenuItemFactoryProps): TContex
     () => [
       factory.createCopyMenuItem(props.workspaceSlug),
       factory.createOpenInNewTabMenuItem(),
+      factory.createCopyLinkMenuItem(),
+      factory.createCopySubmenuItem(),
       factory.createArchiveMenuItem(),
       factory.createRestoreMenuItem(),
       factory.createDeleteMenuItem(),
     ],
-    [factory]
+    [factory, props.workspaceSlug]
   );
 };
 
@@ -306,6 +415,7 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopySubmenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -314,15 +424,16 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
 };
 
 export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuItem[] => {
+  const { setIssueToEdit, issue, cycleId, setCreateUpdateIssueModal } = props;
   const factory = useMenuItemFactory(props);
 
-  const customEditAction = () => {
-    props.setIssueToEdit({
-      ...props.issue,
-      cycle_id: props.cycleId ?? null,
+  const customEditAction = useCallback(() => {
+    setIssueToEdit({
+      ...issue,
+      cycle_id: cycleId ?? null,
     });
-    props.setCreateUpdateIssueModal(true);
-  };
+    setCreateUpdateIssueModal(true);
+  }, [setIssueToEdit, issue, cycleId, setCreateUpdateIssueModal]);
 
   return useMemo(
     () => [
@@ -330,24 +441,26 @@ export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMen
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopySubmenuItem(),
       factory.createRemoveFromCycleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
-    [factory, props.cycleId]
+    [factory, customEditAction]
   );
 };
 
 export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuItem[] => {
+  const { setIssueToEdit, issue, moduleId, setCreateUpdateIssueModal } = props;
   const factory = useMenuItemFactory(props);
 
-  const customEditAction = () => {
-    props.setIssueToEdit({
-      ...props.issue,
-      module_ids: props.moduleId ? [props.moduleId] : [],
+  const customEditAction = useCallback(() => {
+    setIssueToEdit({
+      ...issue,
+      module_ids: moduleId ? [moduleId] : [],
     });
-    props.setCreateUpdateIssueModal(true);
-  };
+    setCreateUpdateIssueModal(true);
+  }, [setIssueToEdit, issue, moduleId, setCreateUpdateIssueModal]);
 
   return useMemo(
     () => [
@@ -355,11 +468,12 @@ export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMe
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopySubmenuItem(),
       factory.createRemoveFromModuleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
-    [factory, props.moduleId]
+    [factory, customEditAction]
   );
 };
 
@@ -371,6 +485,7 @@ export const useArchivedIssueMenuItems = (props: MenuItemFactoryProps): TContext
       factory.createRestoreMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopySubmenuItem(),
       factory.createDeleteMenuItem(),
     ],
     [factory]
