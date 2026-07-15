@@ -22,6 +22,7 @@ from .webhook import urlpatterns as webhook_urls
 from .workspace import urlpatterns as workspace_urls
 from .timezone import urlpatterns as timezone_urls
 from .exporter import urlpatterns as exporter_urls
+from .orca import urlpatterns as orca_urls
 
 urlpatterns = [
     *analytic_urls,
@@ -44,4 +45,6 @@ urlpatterns = [
     *webhook_urls,
     *timezone_urls,
     *exporter_urls,
+    *orca_urls,
 ]
+

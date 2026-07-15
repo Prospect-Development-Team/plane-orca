@@ -1580,6 +1580,11 @@ export default {
           },
         },
       },
+      project_states: {
+        title: "Project States",
+        heading: "Project States",
+        description: "Manage project states for lifecycle classification and progress tracking.",
+      },
       api_tokens: {
         title: "Personal Access Tokens",
         add_token: "Add personal access token",

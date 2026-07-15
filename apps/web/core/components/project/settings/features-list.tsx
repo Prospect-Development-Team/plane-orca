@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { useEffect } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -11,6 +12,9 @@ import { setPromiseToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { IProject } from "@plane/types";
 import { CycleIcon, IntakeIcon, ModuleIcon, PageIcon, ViewsIcon } from "@plane/propel/icons";
+import { Layers } from "lucide-react";
+import { ToggleSwitch } from "@plane/ui";
+import { useCustomProjectState } from "@/hooks/store/use-custom-project-state";
 // components
 import { SettingsBoxedControlItem } from "@/components/settings/boxed-control-item";
 import { SettingsHeading } from "@/components/settings/heading";
@@ -83,6 +87,18 @@ export const ProjectFeaturesList = observer(function ProjectFeaturesList(props: 
   // derived values
   const currentProjectDetails = getProjectById(projectId);
 
+  const customStore = useCustomProjectState();
+
+  useEffect(() => {
+    if (workspaceSlug && projectId) {
+      customStore.fetchSettings(workspaceSlug);
+      customStore.fetchProjectProperty(workspaceSlug, projectId);
+    }
+  }, [workspaceSlug, projectId, customStore]);
+
+  const projectProperty = customStore.projectProperties[projectId];
+  const isProjectStateEnabled = projectProperty ? projectProperty.is_enabled : true;
+
   const handleSubmit = (_featureKey: string, featureProperty: string) => {
     if (!workspaceSlug || !projectId || !currentProjectDetails) return;
 
@@ -143,6 +159,31 @@ export const ProjectFeaturesList = observer(function ProjectFeaturesList(props: 
               )} */}
             </div>
           ))}
+          {customStore.settings?.is_enabled && (
+            <div key="project-states">
+              <SettingsBoxedControlItem
+                title={
+                  <span className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 flex-shrink-0 text-tertiary" />
+                    Project States
+                  </span>
+                }
+                description="Classify and track this project's progress using workspace-level states."
+                control={
+                  <ToggleSwitch
+                    value={isProjectStateEnabled}
+                    onChange={async () => {
+                      if (!workspaceSlug || !projectId) return;
+                      await customStore.updateProjectProperty(workspaceSlug, projectId, {
+                        is_enabled: !isProjectStateEnabled,
+                      });
+                    }}
+                    disabled={!isAdmin}
+                  />
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -19,7 +19,7 @@ import { setPromiseToast, setToast, TOAST_TYPE } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { IProject } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
-import { Avatar, AvatarGroup, ContextMenu, FavoriteStar } from "@plane/ui";
+import { Avatar, AvatarGroup, ContextMenu, FavoriteStar, CustomMenu } from "@plane/ui";
 import { copyUrlToClipboard, cn, getFileURL, renderFormattedDate } from "@plane/utils";
 // components
 // hooks
@@ -33,6 +33,8 @@ import { CoverImage } from "@/components/common/cover-image";
 import { DeleteProjectModal } from "./delete-project-modal";
 import { JoinProjectModal } from "./join-project-modal";
 import { ArchiveRestoreProjectModal } from "./archive-restore-modal";
+import { useEffect } from "react";
+import { useCustomProjectState } from "@/hooks/store/use-custom-project-state";
 
 type Props = {
   project: IProject;
@@ -57,6 +59,19 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
   const { isMobile } = usePlatformOS();
   // derived values
   const projectMembersIds = project.members;
+
+  const customStore = useCustomProjectState();
+  useEffect(() => {
+    if (workspaceSlug && project.id) {
+      customStore.fetchSettings(workspaceSlug.toString());
+      customStore.fetchStates(workspaceSlug.toString());
+      customStore.fetchProjectProperty(workspaceSlug.toString(), project.id);
+    }
+  }, [workspaceSlug, project.id, customStore]);
+
+  const stateProperty = customStore.projectProperties[project.id];
+  const stateDetail = stateProperty?.state_detail;
+
   const shouldRenderFavorite = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.WORKSPACE
@@ -303,11 +318,77 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                 )}
               </Tooltip>
               {isArchived && <div className="text-11 font-medium text-placeholder">Archived</div>}
+              {customStore.settings?.is_enabled && stateProperty?.is_enabled && (
+                <div data-prevent-progress className="shrink-0">
+                  {stateDetail ? (
+                    <CustomMenu
+                      customButton={
+                        <button className="flex items-center gap-1.5 rounded-full border border-subtle bg-surface-1 px-2 py-0.5 transition-colors hover:bg-layer-1">
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: stateDetail.color }}
+                          />
+                          <span className="text-11 font-medium text-secondary">{stateDetail.name}</span>
+                        </button>
+                      }
+                      placement="bottom-start"
+                      disabled={!isMemberOfProject}
+                      closeOnSelect
+                    >
+                      {customStore.states?.map((st) => (
+                        <CustomMenu.MenuItem
+                          key={st.id}
+                          onClick={() => {
+                            if (workspaceSlug) {
+                              customStore.updateProjectProperty(workspaceSlug.toString(), project.id, {
+                                state: st.id,
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="size-2.5 rounded-full" style={{ backgroundColor: st.color }} />
+                          <span>{st.name}</span>
+                        </CustomMenu.MenuItem>
+                      ))}
+                    </CustomMenu>
+                  ) : (
+                    <CustomMenu
+                      customButton={
+                        <button className="text-11 text-placeholder transition-colors hover:text-secondary">
+                          Set State
+                        </button>
+                      }
+                      placement="bottom-start"
+                      disabled={!isMemberOfProject}
+                      closeOnSelect
+                    >
+                      {customStore.states?.map((st) => (
+                        <CustomMenu.MenuItem
+                          key={st.id}
+                          onClick={() => {
+                            if (workspaceSlug) {
+                              customStore.updateProjectProperty(workspaceSlug.toString(), project.id, {
+                                state: st.id,
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="size-2.5 rounded-full" style={{ backgroundColor: st.color }} />
+                          <span>{st.name}</span>
+                        </CustomMenu.MenuItem>
+                      ))}
+                    </CustomMenu>
+                  )}
+                </div>
+              )}
             </div>
             {isArchived ? (
               hasAdminRole && (
                 <div className="flex items-center justify-center gap-2">
-                  <div
+                  <button
+                    type="button"
                     className="flex items-center justify-center text-11 font-medium text-placeholder hover:text-secondary"
                     onClick={(e) => {
                       e.preventDefault();
@@ -319,8 +400,9 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                       <ArchiveRestoreIcon className="h-3.5 w-3.5" />
                       Restore
                     </div>
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
                     className="flex items-center justify-center text-11 font-medium text-placeholder hover:text-secondary"
                     onClick={(e) => {
                       e.preventDefault();
@@ -329,7 +411,7 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                     }}
                   >
                     <TrashIcon className="h-3.5 w-3.5" />
-                  </div>
+                  </button>
                 </div>
               )
             ) : (
