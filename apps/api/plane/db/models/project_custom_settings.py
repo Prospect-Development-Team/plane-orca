@@ -10,6 +10,15 @@ from .project import ProjectBaseModel
 
 
 class ProjectCustomSettings(ProjectBaseModel):
+    """
+    Relational sidecar table for storing project-specific custom overrides and configurations.
+    Designed in compliance with FORK.md to store customization metadata without modifying 
+    the core Project database schema directly.
+    
+    Attributes:
+        project (Project): One-to-one relation to the core Project model.
+        parallel_cycles (bool): Flag indicating whether the project allows multiple active cycles concurrently.
+    """
     project = models.OneToOneField(
         "db.Project",
         on_delete=models.CASCADE,

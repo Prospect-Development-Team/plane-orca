@@ -520,6 +520,11 @@ class CycleViewSet(BaseViewSet):
 class CycleDateCheckEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def post(self, request, slug, project_id):
+        """
+        Check if cycle dates intersect with existing cycles.
+        Custom override: If `parallel_cycles` is enabled for the project, bypass the check
+        and allow dates to overlap/intersect freely since multiple active cycles are supported.
+        """
         project = Project.objects.filter(pk=project_id).first()
         if project:
             custom_settings = getattr(project, "custom_settings", None)

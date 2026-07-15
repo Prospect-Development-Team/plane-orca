@@ -40,6 +40,10 @@ const defaultValues: Partial<ICycle> = {
 
 const cycleService = new CycleService();
 
+/**
+ * @description Sidebar header component for displaying and editing cycle metadata in the analytics sidebar.
+ * Custom behavior: If `parallel_cycles` is enabled for the project, overlapping cycle dates check is bypassed.
+ */
 export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Props) {
   const { workspaceSlug, projectId, cycleDetails, handleClose, isArchived = false } = props;
   // hooks
@@ -95,6 +99,7 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
     };
 
     if (payload?.start_date && payload.end_date) {
+      // Orca Custom Override: Bypass date overlap validation if parallel cycles are enabled
       if (parallelCyclesEnabled) {
         isDateValid = true;
       } else {

@@ -225,7 +225,9 @@ export class CycleStore implements ICycleStore {
   }
 
   /**
-   * Orca Custom Override: returns all active parallel cycle ids for a project
+   * @description Orca Custom Override: Returns all active parallel cycle IDs for a project.
+   * Filters all cycles in cycleMap matching the current projectId that are active ('current').
+   * @returns {string[]} List of active cycle IDs.
    */
   get currentProjectActiveCycleIds() {
     const projectId = this.rootStore.router.projectId;
@@ -252,7 +254,9 @@ export class CycleStore implements ICycleStore {
   }
 
   /**
-   * returns active cycle details for a project (falls back to the first active cycle)
+   * @description Returns active cycle details for a project.
+   * If parallel cycles are enabled, this defaults to the first active cycle retrieved by `currentProjectActiveCycleId`.
+   * @returns {ICycle | null} Active cycle details or null.
    */
   get currentProjectActiveCycle() {
     const projectId = this.rootStore.router.projectId;

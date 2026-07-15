@@ -30,6 +30,7 @@ from plane.utils.content_validator import (
 class ProjectSerializer(BaseSerializer):
     workspace_detail = WorkspaceLiteSerializer(source="workspace", read_only=True)
     inbox_view = serializers.BooleanField(read_only=True, source="intake_view")
+    # Custom override: field for managing parallel cycles configuration
     parallel_cycles = serializers.BooleanField(required=False)
 
     class Meta:
@@ -38,6 +39,12 @@ class ProjectSerializer(BaseSerializer):
         read_only_fields = ["workspace", "deleted_at"]
 
     def to_representation(self, instance):
+        """
+        Custom override:
+        Incorporate `parallel_cycles` setting in the project representation.
+        If `ProjectCustomSettings` exists for the project, retrieve the value;
+        otherwise, fallback to the default project `cycle_view` setting.
+        """
         data = super().to_representation(instance)
         custom_settings = getattr(instance, "custom_settings", None)
         parallel = (
@@ -100,6 +107,11 @@ class ProjectSerializer(BaseSerializer):
         return data
 
     def create(self, validated_data):
+        """
+        Custom override:
+        Create the project, pop parallel_cycles from validated data and initialize the project's
+        `ProjectCustomSettings` setting parallel_cycles config accordingly.
+        """
         parallel_cycles = validated_data.pop("parallel_cycles", True)
         workspace_id = self.context["workspace_id"]
 
@@ -117,6 +129,11 @@ class ProjectSerializer(BaseSerializer):
         return project
 
     def update(self, instance, validated_data):
+        """
+        Custom override:
+        Update project details, extract parallel_cycles setting and apply the change to
+        `ProjectCustomSettings` for the project.
+        """
         parallel_cycles = validated_data.pop("parallel_cycles", None)
         if parallel_cycles is not None:
             from plane.db.models import ProjectCustomSettings
@@ -172,6 +189,11 @@ class ProjectListSerializer(DynamicBaseSerializer):
         fields = "__all__"
 
     def to_representation(self, instance):
+        """
+        Custom override:
+        Incorporate `parallel_cycles` setting in the project representation.
+        Fallback to the default project `cycle_view` if no custom settings exist.
+        """
         data = super().to_representation(instance)
         custom_settings = getattr(instance, "custom_settings", None)
         parallel = (
@@ -191,6 +213,7 @@ class ProjectDetailSerializer(BaseSerializer):
     sort_order = serializers.FloatField(read_only=True)
     member_role = serializers.IntegerField(read_only=True)
     anchor = serializers.CharField(read_only=True)
+    # Custom override: field for managing parallel cycles configuration
     parallel_cycles = serializers.BooleanField(required=False)
 
     class Meta:
@@ -198,6 +221,10 @@ class ProjectDetailSerializer(BaseSerializer):
         fields = "__all__"
 
     def to_representation(self, instance):
+        """
+        Custom override:
+        Incorporate `parallel_cycles` setting in the project detail representation.
+        """
         data = super().to_representation(instance)
         custom_settings = getattr(instance, "custom_settings", None)
         parallel = (
@@ -209,6 +236,10 @@ class ProjectDetailSerializer(BaseSerializer):
         return data
 
     def update(self, instance, validated_data):
+        """
+        Custom override:
+        Update project detail details, applying the parallel_cycles change to `ProjectCustomSettings`.
+        """
         parallel_cycles = validated_data.pop("parallel_cycles", None)
         if parallel_cycles is not None:
             from plane.db.models import ProjectCustomSettings

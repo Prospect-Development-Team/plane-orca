@@ -22,6 +22,10 @@ export interface ICyclesView {
   projectId: string;
 }
 
+/**
+ * @description Renders the lists of cycles (Active, Upcoming, Completed) for a project.
+ * Handles the orca parallel cycle custom override to exclude all active cycles from the upcoming cycles list.
+ */
 export const CyclesView = observer(function CyclesView(props: ICyclesView) {
   const { workspaceSlug, projectId } = props;
   // store hooks
@@ -31,7 +35,11 @@ export const CyclesView = observer(function CyclesView(props: ICyclesView) {
   // derived values
   const filteredCycleIds = getFilteredCycleIds(projectId, false);
   const filteredCompletedCycleIds = getFilteredCompletedCycleIds(projectId);
-  // Orca Custom Override: Exclude all active parallel cycles from the upcoming cycles list
+
+  /**
+   * Orca Custom Override: Exclude all active parallel cycles from the upcoming cycles list.
+   * Under parallel cycles, multiple cycles can be concurrently active, and none should appear in 'upcoming'.
+   */
   const filteredUpcomingCycleIds = (filteredCycleIds ?? []).filter(
     (cycleId) => !currentProjectActiveCycleIds.includes(cycleId)
   );

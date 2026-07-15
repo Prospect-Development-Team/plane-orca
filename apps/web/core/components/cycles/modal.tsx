@@ -34,6 +34,11 @@ type CycleModalProps = {
 // services
 const cycleService = new CycleService();
 
+/**
+ * @description Modal component to create or update cycles.
+ * Custom behavior: If `parallel_cycles` is enabled for the active project, the modal allows overlapping dates
+ * by bypassing the date overlap validation when submitting the form.
+ */
 export function CycleCreateUpdateModal(props: CycleModalProps) {
   const { isOpen, handleClose, data, workspaceSlug, projectId } = props;
   // states
@@ -118,6 +123,7 @@ export function CycleCreateUpdateModal(props: CycleModalProps) {
 
     let isDateValid: boolean = true;
 
+    // Orca Custom Override: Bypass date overlap checks if parallel cycles are enabled for this project
     if (payload.start_date && payload.end_date && !parallelCyclesEnabled) {
       if (data?.id) {
         // Update existing cycle - only check dates if they've changed

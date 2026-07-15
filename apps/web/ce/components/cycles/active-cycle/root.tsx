@@ -98,6 +98,10 @@ const ActiveCyclesComponent = observer(function ActiveCyclesComponent({
   );
 });
 
+/**
+ * @description Orca Custom sidecar wrapper to handle active cycles individually.
+ * Fetches the detail and issue statistics for a specific cycle and renders ActiveCyclesComponent.
+ */
 const ActiveCycleItemWrapper = observer(function ActiveCycleItemWrapper({
   workspaceSlug,
   projectId,
@@ -128,6 +132,11 @@ const ActiveCycleItemWrapper = observer(function ActiveCycleItemWrapper({
   );
 });
 
+/**
+ * @description Component root displaying active cycles of a project.
+ * Custom behavior: If `parallel_cycles` is enabled for the project, it displays
+ * multiple concurrent active cycles. Otherwise, falls back to displaying a single active cycle.
+ */
 export const ActiveCycleRoot = observer(function ActiveCycleRoot(props: IActiveCycleDetails) {
   const { workspaceSlug, projectId, cycleId: propsCycleId, showHeader = true } = props;
   // theme hook
