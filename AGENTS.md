@@ -35,6 +35,7 @@ All changes must follow the upstream compatibility model detailed in [FORK.md](.
 - **Non-Destructive Branding**: Do not rewrite React component imports for logos/assets. Instead, use asset overrides or inject custom CSS.
   - Logo SVG react components are located in [packages/propel/src/icons/brand](./packages/propel/src/icons/brand) (e.g. `plane-logo.tsx`, `plane-lockup.tsx`, `plane-wordmark.tsx`).
   - Public branding assets are located in [apps/web/public/plane-logos](./apps/web/public/plane-logos).
+  - _Design Cohesion_: As much as possible, reuse existing components, styles, and themes (from `@plane/ui` and `@plane/propel`) to align with the repository's current structure. Avoid creating separate or ad-hoc custom designs that disrupt theme consistency.
 
 - **Wrapper Architecture**: Implement large/complex custom features as external sidecars/services, communicating with Plane via REST APIs and Webhooks.
 - **Feature Toggles**: Disable unwanted core features using config or `.env` flags instead of deleting code blocks. Note that the frontend is a Vite-based react app, and env variables must be prefixed with `VITE_`.

@@ -20,6 +20,7 @@ Instead of deleting or rewriting imports in Plane's core React files:
   - `apps/web/public/icons/`
   - `apps/web/public/favicon/`
 - **Styling overrides**: Target default CSS rules in `apps/web/styles/` or inject custom classes.
+- **Design Cohesion**: Always reuse existing UI components (from `@plane/ui` and `@plane/propel`), layouts, utility classes, and styling themes. Avoid writing separate or ad-hoc custom designs/stylesheets that deviate from the repository's current structure.
 
 ### B. "Wrapper" Architecture for Extra Features (The Sidecar Approach)
 
