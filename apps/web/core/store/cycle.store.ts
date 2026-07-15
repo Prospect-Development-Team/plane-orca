@@ -197,22 +197,17 @@ export class CycleStore implements ICycleStore {
 
   /**
    * @description Returns all incomplete cycle IDs for a project (not completed, not archived).
-   * Orca Custom Override: Excludes cycles with status 'current' so that manually-started cycles
-   * (which have start_date set but no end_date) do not appear in the upcoming/incomplete list.
+   * Orca Custom Override: Includes active ('current'), upcoming, and draft cycles.
    */
   get currentProjectIncompleteCycleIds() {
     const projectId = this.rootStore.router.projectId;
     if (!projectId || !this.fetchedMap[projectId]) return null;
     let incompleteCycles = Object.values(this.cycleMap ?? {}).filter((c) => {
-      const endDate = getDate(c.end_date);
-      const hasEndDatePassed = endDate && isPast(endDate);
+      const status = c.status?.toLowerCase();
       return (
         c.project_id === projectId &&
-        !hasEndDatePassed &&
         !c?.archived_at &&
-        c.status?.toLowerCase() !== "completed" &&
-        // Exclude manually-started active cycles (they appear in the active section instead)
-        c.status?.toLowerCase() !== "current"
+        (status === "current" || status === "upcoming" || status === "draft")
       );
     });
     incompleteCycles = sortBy(incompleteCycles, [(c) => c.sort_order]);
