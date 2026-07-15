@@ -158,37 +158,44 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
       target_date: formData.target_date || null,
     };
     setFormSubmitting(true);
-
-    await createInboxIssue(workspaceSlug, projectId, payload)
-      .then(async (res) => {
-        if (uploadedAssetIds.length > 0) {
-          await fileService.updateBulkProjectAssetsUploadStatus(workspaceSlug, projectId, res?.issue.id ?? "", {
-            asset_ids: uploadedAssetIds,
-          });
-          setUploadedAssetIds([]);
-        }
-        if (!createMore) {
-          router.push(`/${workspaceSlug}/projects/${projectId}/intake/?currentTab=open&inboxIssueId=${res?.issue?.id}`);
-          handleModalClose();
-        } else {
-          descriptionEditorRef?.current?.clearEditor();
-          setFormData(defaultIssueData);
-        }
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: `Success!`,
-          message: "Work item created successfully.",
+    try {
+      const res = await createInboxIssue(workspaceSlug, projectId, payload);
+      if (uploadedAssetIds.length > 0) {
+        await fileService.updateBulkProjectAssetsUploadStatus(workspaceSlug, projectId, res?.issue.id ?? "", {
+          asset_ids: uploadedAssetIds,
         });
-      })
-      .catch((error) => {
-        console.error(error);
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: `Error!`,
-          message: "Some error occurred. Please try again.",
+        setUploadedAssetIds([]);
+      }
+      if (!createMore) {
+        router.push(`/${workspaceSlug}/projects/${projectId}/intake/?currentTab=open&inboxIssueId=${res?.issue?.id}`);
+        handleModalClose();
+      } else {
+        descriptionEditorRef?.current?.clearEditor();
+        setFormData({
+          ...defaultIssueData,
+          priority: formData.priority ?? "none",
+          state_id: formData.state_id ?? "",
+          label_ids: formData.label_ids ?? [],
+          assignee_ids: formData.assignee_ids ?? [],
+          target_date: formData.target_date ?? "",
+          start_date: formData.start_date ?? renderFormattedPayloadDate(new Date()),
         });
+      }
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: `Success!`,
+        message: "Work item created successfully.",
       });
-    setFormSubmitting(false);
+    } catch (error) {
+      console.error(error);
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: `Error!`,
+        message: "Some error occurred. Please try again.",
+      });
+    } finally {
+      setFormSubmitting(false);
+    }
   };
 
   const isTitleLengthMoreThan255Character = formData?.name ? formData.name.length > 255 : false;
@@ -236,6 +243,12 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
             <div
               className="inline-flex cursor-pointer items-center gap-1.5"
               onClick={() => setCreateMore((prevData) => !prevData)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  setCreateMore((prevData) => !prevData);
+                }
+              }}
+              // eslint-disable-next-line jsx-a11y/prefer-tag-over-role
               role="button"
               tabIndex={getIndex("create_more")}
             >
