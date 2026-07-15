@@ -1904,7 +1904,7 @@ export default {
     start_date: "Start date",
     end_date: "End date",
     in_your_timezone: "In your timezone",
-    transfer_work_items: "Transfer {count} work items",
+    transfer_work_items: "Transfer {count} incomplete work items",
     date_range: "Date range",
     add_date: "Add date",
     active_cycle: {

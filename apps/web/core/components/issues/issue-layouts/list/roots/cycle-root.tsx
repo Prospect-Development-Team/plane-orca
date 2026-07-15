@@ -22,11 +22,11 @@ export const CycleListLayout = observer(function CycleListLayout() {
   const { workspaceSlug, projectId, cycleId } = useParams();
   // store
   const { issues } = useIssues(EIssuesStoreType.CYCLE);
-  const { currentProjectCompletedCycleIds } = useCycle(); // mobx store
+  const { getCycleById } = useCycle(); // mobx store
   const { allowPermissions } = useUserPermissions();
 
-  const isCompletedCycle =
-    cycleId && currentProjectCompletedCycleIds ? currentProjectCompletedCycleIds.includes(cycleId.toString()) : false;
+  const cycleDetails = cycleId ? getCycleById(cycleId.toString()) : null;
+  const isCompletedCycle = !!cycleDetails?.archived_at;
   const isEditingAllowed = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.PROJECT
@@ -42,7 +42,7 @@ export const CycleListLayout = observer(function CycleListLayout() {
       if (!workspaceSlug || !projectId || !cycleId) throw new Error();
       return issues.addIssueToCycle(workspaceSlug.toString(), projectId.toString(), cycleId.toString(), issueIds);
     },
-    [issues?.addIssueToCycle, workspaceSlug, projectId, cycleId]
+    [issues, workspaceSlug, projectId, cycleId]
   );
 
   return (

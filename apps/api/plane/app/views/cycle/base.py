@@ -357,24 +357,13 @@ class CycleViewSet(BaseViewSet):
 
         current_instance = json.dumps(CycleSerializer(cycle).data, cls=DjangoJSONEncoder)
 
-        request_data = request.data
-
-        # Guard: prevent editing an already-completed cycle (end_date in the past).
-        # The End Cycle action sets end_date on a cycle whose end_date is currently NULL, so it is not blocked here.
-        if cycle.end_date is not None and cycle.end_date < timezone.now():
-            if "sort_order" in request_data:
-                # Can only change sort order for a completed cycle``
-                request_data = {"sort_order": request_data.get("sort_order", cycle.sort_order)}
-            else:
-                return Response(
-                    {"error": "The Cycle has already been completed so it cannot be edited"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
         serializer = CycleWriteSerializer(cycle, data=request.data, partial=True, context={"project_id": project_id})
         if serializer.is_valid():
             serializer.save()
-            cycle = queryset.values(
+            cycle = (
+                self.get_queryset()
+                .filter(workspace__slug=slug, project_id=project_id, pk=pk)
+                .values(
                 # necessary fields
                 "id",
                 "workspace_id",
@@ -399,7 +388,7 @@ class CycleViewSet(BaseViewSet):
                 "assignee_ids",
                 "status",
                 "created_by",
-            ).first()
+            ).first())
 
             # Fetch the project timezone
             project = Project.objects.get(id=self.kwargs.get("project_id"))
@@ -735,7 +724,7 @@ class CycleProgressEndpoint(BaseAPIView):
                 total_estimate_points=Sum("value_as_float", default=Value(0), output_field=FloatField()),
             )
         )
-        if cycle.progress_snapshot:
+        if cycle.archived_at and cycle.progress_snapshot:
             backlog_issues = cycle.progress_snapshot.get("backlog_issues", 0)
             unstarted_issues = cycle.progress_snapshot.get("unstarted_issues", 0)
             started_issues = cycle.progress_snapshot.get("started_issues", 0)
@@ -844,7 +833,7 @@ class CycleAnalyticsEndpoint(BaseAPIView):
         else issues were not transferred to the new cycle then generate the stats from the cycle issue bridge tables
         """
 
-        if cycle.progress_snapshot:
+        if cycle.archived_at and cycle.progress_snapshot:
             distribution = cycle.progress_snapshot.get("distribution", {})
             return Response(
                 {

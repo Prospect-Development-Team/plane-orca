@@ -68,7 +68,6 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
   });
 
   const cycleStatus = cycleDetails?.status?.toLocaleLowerCase();
-  const isCompleted = cycleStatus === "completed";
   const isCurrent = cycleStatus === "current";
   const isDraftOrUpcoming = cycleStatus === "draft" || cycleStatus === "upcoming";
 
@@ -198,7 +197,6 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
                   <DateRangeDropdown
                     className="h-7"
                     buttonVariant="border-with-text"
-                    minDate={new Date()}
                     value={{
                       from: getDate(startDateValue),
                       to: getDate(endDateValue),
@@ -225,7 +223,7 @@ export const CycleSidebarHeader = observer(function CycleSidebarHeader(props: Pr
                     mergeDates
                     showTooltip={!!cycleDetails.start_date && !!cycleDetails.end_date} // show tooltip only if both start and end date are present
                     required={cycleDetails.status !== "draft"}
-                    disabled={!isEditingAllowed || isArchived || isCompleted}
+                    disabled={!isEditingAllowed || isArchived}
                   />
                 )}
               />

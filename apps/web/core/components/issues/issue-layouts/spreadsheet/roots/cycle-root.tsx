@@ -19,11 +19,11 @@ export const CycleSpreadsheetLayout = observer(function CycleSpreadsheetLayout()
   // router
   const { cycleId } = useParams();
   // store hooks
-  const { currentProjectCompletedCycleIds } = useCycle();
+  const { getCycleById } = useCycle();
   const { allowPermissions } = useUserPermissions();
   // auth
-  const isCompletedCycle =
-    cycleId && currentProjectCompletedCycleIds ? currentProjectCompletedCycleIds.includes(cycleId.toString()) : false;
+  const cycleDetails = cycleId ? getCycleById(cycleId.toString()) : null;
+  const isCompletedCycle = !!cycleDetails?.archived_at;
   const isEditingAllowed = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.PROJECT

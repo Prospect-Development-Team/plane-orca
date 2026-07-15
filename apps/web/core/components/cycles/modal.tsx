@@ -148,8 +148,17 @@ export function CycleCreateUpdateModal(props: CycleModalProps) {
     }
 
     if (isDateValid) {
-      if (data?.id) await handleUpdateCycle(data.id, payload);
-      else {
+      if (data?.id) {
+        const originalStartDate = renderFormattedPayloadDate(data.start_date) ?? null;
+        const originalEndDate = renderFormattedPayloadDate(data.end_date) ?? null;
+        if (payload.start_date === originalStartDate) {
+          delete payload.start_date;
+        }
+        if (payload.end_date === originalEndDate) {
+          delete payload.end_date;
+        }
+        await handleUpdateCycle(data.id, payload);
+      } else {
         await handleCreateCycle(payload);
         setCycleTab("all");
       }

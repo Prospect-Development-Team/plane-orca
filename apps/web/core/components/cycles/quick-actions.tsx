@@ -54,35 +54,40 @@ export const CycleQuickActions = observer(function CycleQuickActions(props: Prop
     workspaceSlug,
     projectId
   );
+  const isAdmin = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.PROJECT, workspaceSlug, projectId);
 
   const cycleLink = `${workspaceSlug}/projects/${projectId}/cycles/${cycleId}`;
-  const handleCopyText = () =>
-    copyUrlToClipboard(cycleLink).then(() => {
+  const handleCopyText = async () => {
+    try {
+      await copyUrlToClipboard(cycleLink);
       setToast({
         type: TOAST_TYPE.SUCCESS,
         title: t("common.link_copied"),
         message: t("common.link_copied_to_clipboard"),
       });
-    });
+    } catch {
+      // ignore
+    }
+  };
   const handleOpenInNewTab = () => window.open(`/${cycleLink}`, "_blank");
 
-  const handleRestoreCycle = async () =>
-    await restoreCycle(workspaceSlug, projectId, cycleId)
-      .then(() => {
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: t("project_cycles.action.restore.success.title"),
-          message: t("project_cycles.action.restore.success.description"),
-        });
-        router.push(`/${workspaceSlug}/projects/${projectId}/archives/cycles`);
-      })
-      .catch(() => {
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: t("project_cycles.action.restore.failed.title"),
-          message: t("project_cycles.action.restore.failed.description"),
-        });
+  const handleRestoreCycle = async () => {
+    try {
+      await restoreCycle(workspaceSlug, projectId, cycleId);
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: t("project_cycles.action.restore.success.title"),
+        message: t("project_cycles.action.restore.success.description"),
       });
+      router.push(`/${workspaceSlug}/projects/${projectId}/archives/cycles`);
+    } catch {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: t("project_cycles.action.restore.failed.title"),
+        message: t("project_cycles.action.restore.failed.description"),
+      });
+    }
+  };
 
   const menuResult = useCycleMenuItems({
     cycleDetails: cycleDetails ?? undefined,
@@ -90,6 +95,7 @@ export const CycleQuickActions = observer(function CycleQuickActions(props: Prop
     projectId,
     cycleId,
     isEditingAllowed,
+    isAdmin,
     handleEdit: () => setUpdateModal(true),
     handleArchive: () => setArchiveCycleModal(true),
     handleRestore: handleRestoreCycle,

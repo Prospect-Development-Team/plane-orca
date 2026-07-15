@@ -294,7 +294,6 @@ export const CycleListItemAction = observer(function CycleListItemAction(props: 
               buttonVariant={"transparent-with-text"}
               buttonContainerClassName={`h-6 w-full cursor-auto flex items-center gap-1.5 text-tertiary rounded-sm text-11 [&>div]:hover:bg-transparent`}
               buttonClassName="p-0"
-              minDate={new Date()}
               value={{
                 from: getDate(cycleDetails.start_date),
                 to: getDate(cycleDetails.end_date),

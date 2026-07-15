@@ -9,6 +9,7 @@ import { useRef } from "react";
 import { observer } from "mobx-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { CheckIcon } from "@plane/propel/icons";
+import useSWR from "swr";
 // plane imports
 import type { TCycleGroups } from "@plane/types";
 import { CircularProgressIndicator } from "@plane/ui";
@@ -45,10 +46,17 @@ export const CyclesListItem = observer(function CyclesListItem(props: TCyclesLis
   // hooks
   const { isMobile } = usePlatformOS();
   // store hooks
-  const { getCycleById } = useCycle();
+  const { getCycleById, fetchActiveCycleProgress } = useCycle();
 
   // derived values
   const cycleDetails = getCycleById(cycleId);
+
+  // fetch progress details
+  useSWR(
+    workspaceSlug && projectId && cycleId ? `PROJECT_ACTIVE_CYCLE_${projectId}_PROGRESS_${cycleId}` : null,
+    workspaceSlug && projectId && cycleId ? () => fetchActiveCycleProgress(workspaceSlug, projectId, cycleId) : null,
+    { revalidateIfStale: false, revalidateOnFocus: false }
+  );
 
   if (!cycleDetails) return null;
 

@@ -14,6 +14,7 @@ import { useQuickActionsFactory } from "@/plane-web/components/common/quick-acti
 interface UseCycleMenuItemsProps {
   cycleDetails: ICycle | undefined;
   isEditingAllowed: boolean;
+  isAdmin?: boolean;
   workspaceSlug: string;
   projectId: string;
   cycleId: string;
@@ -66,14 +67,14 @@ type MenuResult = {
 
 export const useCycleMenuItems = (props: UseCycleMenuItemsProps): MenuResult => {
   const factory = useQuickActionsFactory();
-  const { cycleDetails, isEditingAllowed, ...handlers } = props;
+  const { cycleDetails, isEditingAllowed, isAdmin, ...handlers } = props;
 
   const isArchived = !!cycleDetails?.archived_at;
   const isCompleted = cycleDetails?.status?.toLowerCase() === "completed";
 
   // Assemble final menu items - order defined here
   const items = [
-    factory.createEditMenuItem(handlers.handleEdit, isEditingAllowed && !isCompleted && !isArchived),
+    factory.createEditMenuItem(handlers.handleEdit, isEditingAllowed && !isArchived),
     factory.createOpenInNewTabMenuItem(handlers.handleOpenInNewTab),
     factory.createCopyLinkMenuItem(handlers.handleCopyLink),
     factory.createArchiveMenuItem(handlers.handleArchive, {
@@ -81,8 +82,8 @@ export const useCycleMenuItems = (props: UseCycleMenuItemsProps): MenuResult => 
       disabled: !isCompleted,
       description: isCompleted ? undefined : "Only completed cycles can be archived",
     }),
-    factory.createRestoreMenuItem(handlers.handleRestore, isEditingAllowed && isArchived),
-    factory.createDeleteMenuItem(handlers.handleDelete, isEditingAllowed && !isCompleted && !isArchived),
+    factory.createRestoreMenuItem(handlers.handleRestore, isAdmin && isArchived),
+    factory.createDeleteMenuItem(handlers.handleDelete, isEditingAllowed && !isArchived),
   ].filter((item) => item.shouldRender !== false);
 
   return { items, modals: null };
