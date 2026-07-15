@@ -280,6 +280,7 @@ export const BulkOperationsActionBar = observer(function BulkOperationsActionBar
                 buttonVariant="border-with-text"
                 buttonClassName={dropdownCls}
                 placeholder={isMixedState ? "State (Mixed)" : "State"}
+                showDefaultState={false}
                 renderByDefault={false}
                 placement="top-start"
               />
