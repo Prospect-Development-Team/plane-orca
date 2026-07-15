@@ -129,6 +129,11 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     }
   };
 
+  /**
+   * @description Orca Custom Helper: Resolves the issue description HTML.
+   * If the description is not loaded in the lightweight issue object, fetches the full issue from the API.
+   * @returns {Promise<string>} Sanitized plain-text or HTML description.
+   */
   const getOrFetchDescription = async (): Promise<string> => {
     if (issue?.description_html !== undefined) {
       return sanitizeHTML(issue.description_html);
@@ -146,6 +151,9 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     }
   };
 
+  /**
+   * @description Orca Custom Handler: Copies the issue title to the clipboard.
+   */
   const handleCopyIssueTitle = () =>
     copyTextToClipboard(issue?.name || "").then(() =>
       setToast({
@@ -155,6 +163,9 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
       })
     );
 
+  /**
+   * @description Orca Custom Handler: Copies the issue description (as plain text) to the clipboard.
+   */
   const handleCopyIssueDescription = async () => {
     const descriptionText = await getOrFetchDescription();
     if (descriptionText === "") {
@@ -174,6 +185,9 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     );
   };
 
+  /**
+   * @description Orca Custom Handler: Copies both issue title and description, separated by newlines, to the clipboard.
+   */
   const handleCopyIssueTitleAndDescription = async () => {
     const titleText = issue?.name || "";
     const descriptionText = await getOrFetchDescription();
@@ -268,6 +282,11 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     action: actionHandlers.handleCopyIssueLink,
   });
 
+  /**
+   * @description Orca Custom Menu Item: Returns a copy details submenu.
+   * If the description is already loaded and empty, directly returns the Copy Title action.
+   * Otherwise, returns a submenu with choices for Copy Title, Copy Description, and Copy Title & Description.
+   */
   const createCopySubmenuItem = (): TContextMenuItem => {
     const isLoadedAndEmpty = issue?.description_html !== undefined && sanitizeHTML(issue.description_html) === "";
     if (isLoadedAndEmpty) {
