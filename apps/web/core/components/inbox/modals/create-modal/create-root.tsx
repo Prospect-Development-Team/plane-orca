@@ -56,6 +56,11 @@ export const defaultIssueData: Partial<TIssue> = {
   target_date: "",
 };
 
+/**
+ * @description Component root for creating inbox issues/work items.
+ * Custom behavior: Supports form values preservation (e.g. priority, labels, state, assignee, dates)
+ * when `createMore` is toggled so the user does not have to re-enter them for consecutive items.
+ */
 export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props: TInboxIssueCreateRoot) {
   const { workspaceSlug, projectId, handleModalClose, isDuplicateModalOpen, handleDuplicateIssueModal } = props;
   // states
@@ -171,6 +176,7 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
         handleModalClose();
       } else {
         descriptionEditorRef?.current?.clearEditor();
+        // Orca Custom Override: Preserve selected form fields for the next issue creation
         setFormData({
           ...defaultIssueData,
           priority: formData.priority ?? "none",

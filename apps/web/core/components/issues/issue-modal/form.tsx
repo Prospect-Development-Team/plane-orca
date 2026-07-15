@@ -75,6 +75,11 @@ export interface IssueFormProps {
   dataResetProperties?: any[];
 }
 
+/**
+ * @description Root form component for creating and updating work items/issues.
+ * Custom behavior: When `isCreateMoreToggleEnabled` is active, it preserves the previously filled
+ * form fields (like assignee, labels, state, priority, etc.) to streamline successive issue creation.
+ */
 export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormProps) {
   const { t } = useTranslation();
   const {
@@ -262,6 +267,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         });
       } else {
         const currentValues = getValues();
+        // Orca Custom Override: If create more toggle is active, preserve all current form values except name & description
         reset({
           ...DEFAULT_WORK_ITEM_FORM_VALUES,
           ...(isCreateMoreToggleEnabled
