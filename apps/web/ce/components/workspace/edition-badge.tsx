@@ -13,14 +13,14 @@ export const WorkspaceEditionBadge = observer(function WorkspaceEditionBadge() {
       href="https://github.com/Prospect-Development-Team"
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 rounded-full px-3 py-1 transition-colors select-none hover:bg-layer-2"
+      className="mx-auto flex items-center gap-2 rounded-full px-3 py-1 transition-colors select-none hover:bg-layer-2"
     >
       <img
         src={prospectDevelopmentTeamLogo}
         alt="Prospect Development Team"
         className="h-6 w-6 rounded-sm object-cover"
       />
-      <span className="text-12 font-medium whitespace-nowrap text-[#D4AF37]">Prospect Development Team</span>
+      <span className="text-12 font-semibold whitespace-nowrap text-[#D4AF37]">Prospect Development Team</span>
     </a>
   );
 });
