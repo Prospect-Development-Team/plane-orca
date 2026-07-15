@@ -46,3 +46,8 @@ All changes must follow the upstream compatibility model detailed in [FORK.md](.
   - `orca(strip): [short description]` — Disabling/removing telemetry, upgrade prompts, or unused pages.
   - `orca(feat): [short description]` — Custom integrations, sidecars, or internal tools.
 - **Atomic Commits**: Keep edits small and write semantic, isolated commits to make merging upstream updates easier.
+
+## Token Efficiency & Command Guidelines
+
+- **Minimize Output**: To conserve token usage, avoid running commands that generate large volumes of terminal output (e.g. `pnpm check`, long builds, full tests) directly through the agent context unless strictly necessary. Instead, the agent should list the commands for the developer to run locally.
+- **Database Migrations**: When changes involve Django database models or backend updates that require schema changes, always remind the user to run the migration commands (e.g., `python apps/api/manage.py migrate` or similar docker-compose commands).
