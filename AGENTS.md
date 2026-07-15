@@ -17,6 +17,8 @@
 - **TypeScript**: Strict mode enabled, all files must be typed
 - **Formatting**: oxfmt, run `pnpm fix:format` (Frontend); Ruff is configured for Python formatting (`line-length = 120`, double quotes).
 - **Linting**: OxLint with shared `.oxlintrc.json` config (Frontend); Ruff is used for Python linting (`E`, `F` rules) under `apps/api/`.
+  - _Weighing Suppressions vs. Fixes_: Always prioritize fixing the root cause of lint warnings/errors (e.g. converting `div role="button"` to semantic `<button>` elements, or writing proper typescript types).
+  - _Suppression Escape Hatch_: Use `eslint-disable` (specifically inline `eslint-disable-next-line` along with standard accessibility helpers) only as a last resort if resolving the root issue introduces high regression risks (such as breaking CSS layouts) or if changing HTML tag structures increases the surface area for merge conflicts when syncing with the upstream repository. Never use file-wide disables when a line-specific override suffices.
 - **Naming**: camelCase for variables/functions, PascalCase for components/types
 - **Error Handling**: Use try-catch with proper error types, log errors appropriately
 - **State Management**: MobX stores in `packages/shared-state`, reactive patterns
