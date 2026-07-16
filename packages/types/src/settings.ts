@@ -16,7 +16,8 @@ export type TWorkspaceSettingsTabs =
   | "billing-and-plans"
   | "export"
   | "webhooks"
-  | "project-states";
+  | "project-states"
+  | "project-labels";
 export type TWorkspaceSettingsItem = {
   key: TWorkspaceSettingsTabs;
   i18n_label: string;

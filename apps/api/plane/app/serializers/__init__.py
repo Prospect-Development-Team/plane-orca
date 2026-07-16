@@ -139,4 +139,11 @@ from .project_state import (
     WorkspaceProjectStateSettingsSerializer,
     ProjectStatePropertySerializer,
 )
+from .project_label import (
+    WorkspaceProjectLabelSerializer,
+    WorkspaceProjectLabelSettingsSerializer,
+    ProjectLabelPropertySerializer,
+    ProjectProjectLabelSerializer,
+)
+
 

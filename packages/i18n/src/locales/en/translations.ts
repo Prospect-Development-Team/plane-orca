@@ -1585,6 +1585,11 @@ export default {
         heading: "Project States",
         description: "Manage project states for lifecycle classification and progress tracking.",
       },
+      project_labels: {
+        title: "Project Labels",
+        heading: "Project Labels",
+        description: "Manage project labels for categorization and board/list grouping.",
+      },
       api_tokens: {
         title: "Personal Access Tokens",
         add_token: "Add personal access token",

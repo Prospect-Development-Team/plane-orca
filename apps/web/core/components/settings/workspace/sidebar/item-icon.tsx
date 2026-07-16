@@ -5,7 +5,7 @@
  */
 
 import type { LucideIcon } from "lucide-react";
-import { ArrowUpToLine, Building, CreditCard, Users, Webhook, Layers } from "lucide-react";
+import { ArrowUpToLine, Building, CreditCard, Users, Webhook, Layers, Tags } from "lucide-react";
 // plane imports
 import type { ISvgIcons } from "@plane/propel/icons";
 import type { TWorkspaceSettingsTabs } from "@plane/types";
@@ -17,4 +17,5 @@ export const WORKSPACE_SETTINGS_ICONS: Record<TWorkspaceSettingsTabs, LucideIcon
   "billing-and-plans": CreditCard,
   webhooks: Webhook,
   "project-states": Layers,
+  "project-labels": Tags,
 };

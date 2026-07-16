@@ -6,7 +6,8 @@
 
 import { useState } from "react";
 import { observer } from "mobx-react";
-import { useParams } from "next/navigation";
+import { useParams as useNextParams } from "next/navigation";
+import { useParams as useReactParams } from "react-router";
 // types
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IIssueLabel } from "@plane/types";
@@ -19,12 +20,17 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   data: IIssueLabel | null;
+  handleDelete?: (label: IIssueLabel) => Promise<void>;
 };
 
 export const DeleteLabelModal = observer(function DeleteLabelModal(props: Props) {
-  const { isOpen, onClose, data } = props;
+  const { isOpen, onClose, data, handleDelete } = props;
   // router
-  const { workspaceSlug, projectId } = useParams();
+  const nextParams = useNextParams();
+  const reactParams = useReactParams();
+  const workspaceSlug = nextParams?.workspaceSlug || reactParams?.workspaceSlug;
+  const projectId = nextParams?.projectId || reactParams?.projectId;
+
   // store hooks
   const { deleteLabel } = useLabel();
   // states
@@ -36,23 +42,27 @@ export const DeleteLabelModal = observer(function DeleteLabelModal(props: Props)
   };
 
   const handleDeletion = async () => {
-    if (!workspaceSlug || !projectId || !data) return;
+    if (!workspaceSlug || !data) return;
+    if (!projectId && !handleDelete) return;
 
     setIsDeleteLoading(true);
 
-    await deleteLabel(workspaceSlug.toString(), projectId.toString(), data.id)
-      .then(() => {
-        handleClose();
-      })
-      .catch((err) => {
-        setIsDeleteLoading(false);
-        const error = err?.error || "Label could not be deleted. Please try again.";
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: error,
-        });
+    try {
+      if (handleDelete) {
+        await handleDelete(data);
+      } else {
+        await deleteLabel(workspaceSlug.toString(), projectId.toString(), data.id);
+      }
+      handleClose();
+    } catch (err: any) {
+      setIsDeleteLoading(false);
+      const error = err?.error || "Label could not be deleted. Please try again.";
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: error,
       });
+    }
   };
 
   return (
@@ -63,11 +73,12 @@ export const DeleteLabelModal = observer(function DeleteLabelModal(props: Props)
       isOpen={isOpen}
       title="Delete Label"
       content={
-        <>
-          Are you sure you want to delete <span className="font-medium text-primary">{data?.name}</span>? This will
-          remove the label from all the work item and from any views where the label is being filtered upon.
-        </>
+        <div className="flex flex-col gap-2">
+          <span>Are you sure you want to delete the label?</span>
+          <span>This action cannot be undone. All the issues with this label will lose it.</span>
+        </div>
       }
+      variant="danger"
     />
   );
 });

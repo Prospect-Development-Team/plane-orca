@@ -244,4 +244,11 @@ from .project_state import (
     ProjectStateViewSet,
     ProjectStatePropertyEndpoint,
 )
+from .project_label import (
+    WorkspaceProjectLabelSettingsEndpoint,
+    WorkspaceProjectLabelViewSet,
+    ProjectLabelPropertyEndpoint,
+    ProjectProjectLabelEndpoint,
+)
+
 

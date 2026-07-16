@@ -12,9 +12,10 @@ import { setPromiseToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { IProject } from "@plane/types";
 import { CycleIcon, IntakeIcon, ModuleIcon, PageIcon, ViewsIcon } from "@plane/propel/icons";
-import { Layers } from "lucide-react";
+import { Layers, Tags } from "lucide-react";
 import { ToggleSwitch } from "@plane/ui";
 import { useCustomProjectState } from "@/hooks/store/use-custom-project-state";
+import { useCustomProjectLabel } from "@/hooks/store/use-custom-project-label";
 // components
 import { SettingsBoxedControlItem } from "@/components/settings/boxed-control-item";
 import { SettingsHeading } from "@/components/settings/heading";
@@ -88,55 +89,55 @@ export const ProjectFeaturesList = observer(function ProjectFeaturesList(props: 
   const currentProjectDetails = getProjectById(projectId);
 
   const customStore = useCustomProjectState();
+  const labelStore = useCustomProjectLabel();
 
   useEffect(() => {
     if (workspaceSlug && projectId) {
       customStore.fetchSettings(workspaceSlug);
       customStore.fetchProjectProperty(workspaceSlug, projectId);
+      labelStore.fetchSettings(workspaceSlug);
+      labelStore.fetchProjectProperty(workspaceSlug, projectId);
     }
-  }, [workspaceSlug, projectId, customStore]);
+  }, [workspaceSlug, projectId, customStore, labelStore]);
 
   const projectProperty = customStore.projectProperties[projectId];
   const isProjectStateEnabled = projectProperty ? projectProperty.is_enabled : true;
 
-  const handleSubmit = (_featureKey: string, featureProperty: string) => {
-    if (!workspaceSlug || !projectId || !currentProjectDetails) return;
+  const projectLabelProperty = labelStore.projectProperties[projectId];
+  const isProjectLabelEnabled = projectLabelProperty ? projectLabelProperty.is_enabled : true;
 
-    // making the request to update the project feature
-    const settingsPayload = {
-      [featureProperty]: !currentProjectDetails?.[featureProperty as keyof IProject],
-    };
-    const updateProjectPromise = updateProject(workspaceSlug, projectId, settingsPayload);
+  const handleSubmit = async (featureKey: string, property: string, value: boolean) => {
+    if (!workspaceSlug || !projectId) return;
 
-    setPromiseToast(updateProjectPromise, {
-      loading: "Updating project feature...",
-      success: {
-        title: "Success!",
-        message: () => "Project feature updated successfully.",
-      },
-      error: {
-        title: "Error!",
-        message: () => "Something went wrong while updating project feature. Please try again.",
-      },
+    const promise = updateProject(workspaceSlug, projectId, {
+      [property]: value,
     });
-    void updateProjectPromise.then(() => {
-      return undefined;
+
+    setPromiseToast(promise, {
+      loading: `Updating ${featureKey}...`,
+      success: `${featureKey} updated successfully.`,
+      error: `Failed to update ${featureKey}. Please try again.`,
     });
   };
 
   return (
     <>
-      <div>
-        <SettingsHeading title={t("projects_and_issues")} description={t("projects_and_issues_description")} />
-        <div className="mt-6 flex flex-col gap-y-4">
-          {Object.entries(PROJECT_FEATURES_LIST).map(([featureItemKey, featureItem]) => (
-            <div key={featureItemKey}>
+      <div className="flex flex-col gap-6">
+        <SettingsHeading
+          title={t("project_settings.features.title")}
+          description={t("project_settings.features.description")}
+        />
+
+        <div className="flex flex-col gap-4">
+          {Object.values(PROJECT_FEATURES_LIST).map((featureItem) => (
+            <div key={featureItem.key}>
               <SettingsBoxedControlItem
                 title={
                   <span className="flex items-center gap-2">
-                    {t(featureItem.key)}
+                    {featureItem.icon}
+                    {featureItem.title}
                     {featureItem.isPro && (
-                      <Tooltip tooltipContent="Pro feature" position="top">
+                      <Tooltip tooltipContent="Available on plan paid" theme="dark">
                         <UpgradeBadge className="rounded-sm" />
                       </Tooltip>
                     )}
@@ -176,6 +177,31 @@ export const ProjectFeaturesList = observer(function ProjectFeaturesList(props: 
                       if (!workspaceSlug || !projectId) return;
                       await customStore.updateProjectProperty(workspaceSlug, projectId, {
                         is_enabled: !isProjectStateEnabled,
+                      });
+                    }}
+                    disabled={!isAdmin}
+                  />
+                }
+              />
+            </div>
+          )}
+          {labelStore.settings?.is_enabled && (
+            <div key="project-labels">
+              <SettingsBoxedControlItem
+                title={
+                  <span className="flex items-center gap-2">
+                    <Tags className="h-5 w-5 flex-shrink-0 text-tertiary" />
+                    Project Labels
+                  </span>
+                }
+                description="Categorize and group this project using workspace-level labels."
+                control={
+                  <ToggleSwitch
+                    value={isProjectLabelEnabled}
+                    onChange={async () => {
+                      if (!workspaceSlug || !projectId) return;
+                      await labelStore.updateProjectLabelProperty(workspaceSlug, projectId, {
+                        is_enabled: !isProjectLabelEnabled,
                       });
                     }}
                     disabled={!isAdmin}
