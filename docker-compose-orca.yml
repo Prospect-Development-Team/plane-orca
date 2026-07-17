@@ -225,8 +225,8 @@ services:
     container_name: proxy
     image: ghcr.io/prospect-development-team/plane-orca/proxy:${TAG:-stage}
     restart: always
-    ports:
-      - ${LISTEN_HTTP_PORT:-8000}:80
+    expose:
+      - 80
     environment:
       FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
       BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
