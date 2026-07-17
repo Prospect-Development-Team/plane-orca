@@ -48,6 +48,15 @@ jobs:
       - name: Lowercase Image Name
         run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Extract Version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -61,7 +70,9 @@ jobs:
             echo "Promoting ${app} image..."
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage
             docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:${{ env.VERSION }}
             docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:${{ env.VERSION }}
           done
 
   deploy:
