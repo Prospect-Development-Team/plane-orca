@@ -3,7 +3,7 @@ version: '3.8'
 services:
   web:
     container_name: web
-    image: ghcr.io/Prospect-Development-Team/plane-orca/web:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/web:${TAG:-stage}
     restart: always
     depends_on:
       - api
@@ -14,7 +14,7 @@ services:
 
   admin:
     container_name: admin
-    image: ghcr.io/Prospect-Development-Team/plane-orca/admin:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/admin:${TAG:-stage}
     restart: always
     depends_on:
       - api
@@ -26,7 +26,7 @@ services:
 
   space:
     container_name: space
-    image: ghcr.io/Prospect-Development-Team/plane-orca/space:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/space:${TAG:-stage}
     restart: always
     depends_on:
       - api
@@ -38,7 +38,7 @@ services:
 
   api:
     container_name: api
-    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     environment:
@@ -64,7 +64,7 @@ services:
 
   worker:
     container_name: bgworker
-    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: always
     command: ./bin/docker-entrypoint-worker.sh
     environment:
@@ -91,7 +91,7 @@ services:
 
   beat-worker:
     container_name: beatworker
-    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: always
     command: ./bin/docker-entrypoint-beat.sh
     environment:
@@ -118,7 +118,7 @@ services:
 
   migrator:
     container_name: plane-migrator
-    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: no
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
@@ -140,7 +140,7 @@ services:
 
   live:
     container_name: plane-live
-    image: ghcr.io/Prospect-Development-Team/plane-orca/live:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/live:${TAG:-stage}
     restart: always
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -223,7 +223,7 @@ services:
   # Comment this if you already have a reverse proxy running
   proxy:
     container_name: proxy
-    image: ghcr.io/Prospect-Development-Team/plane-orca/proxy:${TAG:-stage}
+    image: ghcr.io/prospect-development-team/plane-orca/proxy:${TAG:-stage}
     restart: always
     ports:
       - ${LISTEN_HTTP_PORT:-8000}:80
