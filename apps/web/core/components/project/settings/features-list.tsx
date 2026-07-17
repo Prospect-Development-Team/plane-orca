@@ -113,10 +113,18 @@ export const ProjectFeaturesList = observer(function ProjectFeaturesList(props: 
       [property]: value,
     });
 
+    const featureName = t(`project_settings.features.${featureKey}.title`);
+
     setPromiseToast(promise, {
-      loading: `Updating ${featureKey}...`,
-      success: `${featureKey} updated successfully.`,
-      error: `Failed to update ${featureKey}. Please try again.`,
+      loading: t("project_settings.features.toast.loading", { feature: featureName }),
+      success: {
+        title: t("project_settings.features.toast.success_title"),
+        message: () => t("project_settings.features.toast.success", { feature: featureName }),
+      },
+      error: {
+        title: t("project_settings.features.toast.error_title"),
+        message: () => t("project_settings.features.toast.error", { feature: featureName }),
+      },
     });
   };
 

@@ -1864,6 +1864,15 @@ export default {
       },
     },
     features: {
+      title: "Features",
+      description: "Enable or disable features for this project.",
+      toast: {
+        loading: "Updating {feature}...",
+        success_title: "Success!",
+        success: "{feature} updated successfully.",
+        error_title: "Error!",
+        error: "Failed to update {feature}. Please try again.",
+      },
       cycles: {
         title: "Cycles",
         short_title: "Cycles",
