@@ -34,6 +34,6 @@
 	reverse_proxy /* web:3000
 }
 
-{$SITE_ADDRESS::80} {
+{$SITE_ADDRESS} {
 	import plane_proxy
 }
