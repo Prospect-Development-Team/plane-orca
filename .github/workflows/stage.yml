@@ -54,6 +54,7 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       live: ${{ steps.filter.outputs.live }}
       proxy: ${{ steps.filter.outputs.proxy }}
+      code_changes: ${{ steps.filter.outputs.code_changes }}
       any_changed: ${{ steps.filter.outputs.changes != '[]' }}
     steps:
       - name: Checkout Code
@@ -98,11 +99,21 @@ jobs:
             proxy:
               - 'apps/proxy/**'
               - '.github/workflows/stage.yml'
+            code_changes:
+              - 'apps/web/**'
+              - 'apps/admin/**'
+              - 'apps/space/**'
+              - 'apps/live/**'
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
 
   ci:
     name: Code Quality Checks (CI)
     needs: changes
-    if: ${{ needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ needs.changes.outputs.code_changes == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
