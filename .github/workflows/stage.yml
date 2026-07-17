@@ -101,6 +101,8 @@ jobs:
 
   ci:
     name: Code Quality Checks (CI)
+    needs: changes
+    if: ${{ needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
