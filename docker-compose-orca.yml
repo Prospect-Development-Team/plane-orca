@@ -55,7 +55,7 @@ services:
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
-      - WEB_URL=${WEB_URL:-${SERVICE_FQDN_PROXY:-http://localhost:8000}}
+      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
     depends_on:
       - plane-db
       - plane-redis
@@ -89,7 +89,7 @@ services:
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
-      - WEB_URL=${WEB_URL:-${SERVICE_FQDN_PROXY:-http://localhost:8000}}
+      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
     depends_on:
       - api
       - plane-db
@@ -118,7 +118,7 @@ services:
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
-      - WEB_URL=${WEB_URL:-${SERVICE_FQDN_PROXY:-http://localhost:8000}}
+      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
     depends_on:
       - api
       - plane-db
@@ -147,7 +147,7 @@ services:
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
-      - WEB_URL=${WEB_URL:-${SERVICE_FQDN_PROXY:-http://localhost:8000}}
+      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
     depends_on:
       - plane-db
       - plane-redis
