@@ -31,7 +31,7 @@ on:
     branches: [stage]
 
 concurrency:
-  group: stage-${{ github.repository }}
+  group: stage-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

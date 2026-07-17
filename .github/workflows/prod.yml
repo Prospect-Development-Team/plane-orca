@@ -27,7 +27,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: prod-${{ github.repository }}
+  group: prod-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
