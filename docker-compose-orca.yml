@@ -42,9 +42,9 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     environment:
-      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
-      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - SECRET_KEY=${SECRET_KEY}
+      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
@@ -68,9 +68,9 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-worker.sh
     environment:
-      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
-      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - SECRET_KEY=${SECRET_KEY}
+      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
@@ -95,9 +95,9 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-beat.sh
     environment:
-      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
-      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - SECRET_KEY=${SECRET_KEY}
+      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
@@ -122,9 +122,9 @@ services:
     restart: no
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
-      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
-      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - SECRET_KEY=${SECRET_KEY}
+      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
@@ -143,9 +143,9 @@ services:
     image: ghcr.io/Prospect-Development-Team/plane-orca/live:${TAG:-stage}
     restart: always
     environment:
-      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
-      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - SECRET_KEY=${SECRET_KEY}
+      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//

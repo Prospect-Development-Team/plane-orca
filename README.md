@@ -30,27 +30,37 @@ To deploy **Plane Orca** on your VPS via Coolify, we recommend using [docker-com
 - **Pre-Built Images**: It references pre-compiled images from GHCR (e.g. `ghcr.io/.../web:stage`) built on GitHub's free Actions runners. Running a compile/build step directly on a 4GB VPS (which Next.js frontends require) will crash the server due to high compile-time RAM usage.
 - **Resource Constraints**: It defines strict memory limits (`mem_limit`) for all containers, ensuring the entire 11-service stack stays safe and stable under 3GB of runtime memory.
 
-#### 2. Fully Automated Configuration & Secrets
+#### 2. Environment Variables & Automated Routing
 
-Coolify parses `docker-compose-orca.yml` and automates the configuration using **Magic Environment Variables**. You do not need to manually generate secret keys or type your domain name:
+Most configuration variables are fully automated or pre-filled:
 
-- **Automatic Domain Injection**: The compose file binds `DOMAIN_NAME` to `${COOLIFY_FQDN}`. Coolify dynamically injects the domain name you configure in the dashboard UI.
-- **Automatic Secret Generation**: `SECRET_KEY` and `LIVE_SERVER_SECRET_KEY` use Coolify's base-64 password generator. On your very first deployment, Coolify will generate cryptographically secure 64-character keys, persist them, and encrypt them at rest.
+- **Automatic Domain Injection**: The compose file binds `DOMAIN_NAME` to `${SERVICE_FQDN_PROXY:-localhost}`. Coolify automatically generates this variable based on the domain you assign to the `proxy` service in the dashboard UI.
+- **Required Secrets**: `SECRET_KEY` and `LIVE_SERVER_SECRET_KEY` must be manually generated and configured in Coolify's **Environment Variables** tab.
+  - **Linux / macOS (Terminal)**:
+    ```bash
+    openssl rand -hex 32
+    ```
+  - **Windows (PowerShell)**:
+    ```powershell
+    -join ((0..63) | ForEach-Object { Get-Random -InputObject ('a'..'z' + 'A'..'Z' + '0'..'9') })
+    ```
 
 ##### Customizable Variables
 
-For convenience, database credentials, RabbitMQ configurations, and local MinIO storage endpoint settings are **pre-filled with safe defaults**. If you wish to customize them (e.g. changing database credentials or pointing to an external S3 store like Cloudflare R2), you can define them in Coolify's **Environment Variables** tab:
+For convenience, database credentials, RabbitMQ settings, and local MinIO storage keys are **pre-filled with safe defaults**. If you wish to customize them (e.g. changing database credentials or pointing to an external S3 store like Cloudflare R2), define them in Coolify's **Environment Variables** tab:
 
-| Variable                | Description                      | Default            |
-| ----------------------- | -------------------------------- | ------------------ |
-| `POSTGRES_USER`         | PostgreSQL database user.        | `plane`            |
-| `POSTGRES_PASSWORD`     | PostgreSQL database password.    | `plane123`         |
-| `POSTGRES_DB`           | PostgreSQL database schema name. | `plane`            |
-| `RABBITMQ_USER`         | RabbitMQ connection user.        | `plane`            |
-| `RABBITMQ_PASSWORD`     | RabbitMQ connection password.    | `plane123`         |
-| `AWS_ACCESS_KEY_ID`     | Storage access key.              | `plane-access-key` |
-| `AWS_SECRET_ACCESS_KEY` | Storage secret key.              | `plane-secret-key` |
-| `AWS_S3_BUCKET_NAME`    | Storage bucket name.             | `uploads`          |
+| Variable                 | Description                               | Default                       |
+| ------------------------ | ----------------------------------------- | ----------------------------- |
+| `SECRET_KEY`             | Secure session cryptography key (django). | _User-provided (64-char key)_ |
+| `LIVE_SERVER_SECRET_KEY` | Websockets server encryption key.         | _User-provided (64-char key)_ |
+| `POSTGRES_USER`          | PostgreSQL database user.                 | `plane`                       |
+| `POSTGRES_PASSWORD`      | PostgreSQL database password.             | `plane123`                    |
+| `POSTGRES_DB`            | PostgreSQL database schema name.          | `plane`                       |
+| `RABBITMQ_USER`          | RabbitMQ connection user.                 | `plane`                       |
+| `RABBITMQ_PASSWORD`      | RabbitMQ connection password.             | `plane123`                    |
+| `AWS_ACCESS_KEY_ID`      | Storage access key.                       | `plane-access-key`            |
+| `AWS_SECRET_ACCESS_KEY`  | Storage secret key.                       | `plane-secret-key`            |
+| `AWS_S3_BUCKET_NAME`     | Storage bucket name.                      | `uploads`                     |
 
 #### 3. Coolify-Specific Deployment Steps
 
