@@ -47,18 +47,18 @@ services:
       - SERVICE_HEX_64_LIVE
       - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_DB}:${SERVICE_PASSWORD_DB}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AMQP_URL=amqp://${SERVICE_USER_MQ}:${SERVICE_PASSWORD_MQ}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_MINIO}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
       - SERVICE_URL_PROXY
-      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - plane-db
       - plane-redis
@@ -83,17 +83,17 @@ services:
       - SECRET_KEY=${SERVICE_HEX_64_API}
       - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_DB}:${SERVICE_PASSWORD_DB}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AMQP_URL=amqp://${SERVICE_USER_MQ}:${SERVICE_PASSWORD_MQ}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_MINIO}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
       - SERVICE_URL_PROXY
-      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - api
       - plane-db
@@ -113,17 +113,17 @@ services:
       - SECRET_KEY=${SERVICE_HEX_64_API}
       - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_DB}:${SERVICE_PASSWORD_DB}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AMQP_URL=amqp://${SERVICE_USER_MQ}:${SERVICE_PASSWORD_MQ}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_MINIO}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
       - SERVICE_URL_PROXY
-      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - api
       - plane-db
@@ -143,17 +143,17 @@ services:
       - SECRET_KEY=${SERVICE_HEX_64_API}
       - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_DB}:${SERVICE_PASSWORD_DB}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AMQP_URL=amqp://${SERVICE_USER_MQ}:${SERVICE_PASSWORD_MQ}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_MINIO}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
       - SERVICE_URL_PROXY
-      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - plane-db
       - plane-redis
@@ -166,12 +166,12 @@ services:
       - SECRET_KEY=${SERVICE_HEX_64_API}
       - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_DB}:${SERVICE_PASSWORD_DB}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - API_BASE_URL=http://api:8000
-      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AMQP_URL=amqp://${SERVICE_USER_MQ}:${SERVICE_PASSWORD_MQ}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_MINIO}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
@@ -191,9 +191,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${SERVICE_USER_PLANE-DB:-plane}
+      POSTGRES_USER: ${SERVICE_USER_DB}
       POSTGRES_DB: ${POSTGRES_DB:-plane}
-      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_PLANE-DB:-plane123}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_DB}
       PGDATA: /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-plane} -d $${POSTGRES_DB:-plane}"]
@@ -228,8 +228,8 @@ services:
     image: rabbitmq:3.13.6-management-alpine
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: ${SERVICE_USER_PLANE-MQ:-plane}
-      RABBITMQ_DEFAULT_PASS: ${SERVICE_PASSWORD_PLANE-MQ:-plane123}
+      RABBITMQ_DEFAULT_USER: ${SERVICE_USER_MQ}
+      RABBITMQ_DEFAULT_PASS: ${SERVICE_PASSWORD_MQ}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -246,8 +246,8 @@ services:
     volumes:
       - uploads:/export
     environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-plane-access-key}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      MINIO_ROOT_USER: ${SERVICE_USER_MINIO}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_MINIO}
     deploy:
       resources:
         limits:
