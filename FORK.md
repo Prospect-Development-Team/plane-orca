@@ -113,10 +113,14 @@ To keep this fork functional when upstream Plane releases updates, follow these 
 Because you will be maintaining an active bridge between your local `main` branch (mirroring Plane) and your staging/production branches, commit discipline is critical.
 
 - **Commit Small, Isolated Changes**: A pull request should do one thing (e.g., just hiding the upgrade button). If a developer merges a single giant PR changing many files, it will be nearly impossible to merge upstream security updates without breaking the build.
-- **Require Feature Prefixing**: Establish a strict prefixing rule for custom changes so they are easy to search in the Git history:
-  - `orca(ui): [short description]` — For branding, logo, asset overrides, or color changes.
-  - `orca(strip): [short description]` — For disabling/removing upgrade prompts, telemetry, or unused pages.
-  - `orca(feat): [short description]` — For custom integrations, wrapper services, or internal tools.
+- **Conventional Commits & Prefixing**: To enable automated releases and changelog grouping via **Release Please**, use the following exact commit prefix formats:
+  - `orca-feat: [short description]` — Custom features, integrations, or sidecars (triggers a **Minor** version bump; mapped to _Features_ section).
+  - `orca-fix: [short description]` — Bug fixes for custom code (triggers a **Patch** version bump; mapped to _Bug Fixes_ section).
+  - `orca-ui: [short description]` — Branding, logo, or asset overrides (triggers a **Patch** version bump; mapped to _Branding & UI_ section).
+  - `orca-style: [short description]` — Custom UI spacing or style improvements (mapped to _Styles_ section).
+  - `orca-docs: [short description]` — Documentation updates (mapped to _Documentation_ section).
+  - `orca-chore: [short description]` — Development setup and dependency changes (mapped to _Chores_ section).
+  - `orca-refactor: [short description]` — Code refactoring or cleanup (mapped to _Code Refactoring_ section).
 
 ### C. Versioning Policy
 
