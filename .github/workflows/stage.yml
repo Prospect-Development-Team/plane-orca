@@ -43,7 +43,7 @@ env:
 
 jobs:
   changes:
-    name: Detect Changed Services
+    name: Check Code Changes
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -59,7 +59,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      - name: Detect Changes
+      - name: Filter Changed Paths
         id: filter
         uses: dorny/paths-filter@v3
         with:
