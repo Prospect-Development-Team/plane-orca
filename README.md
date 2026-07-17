@@ -1,3 +1,28 @@
+# 🐋 Plane Orca (Custom Fork)
+
+> [!IMPORTANT]
+> **Plane Orca** is our customized team fork of upstream [Plane Community Edition](https://github.com/makeplane/plane).
+
+### 🚀 Fork Workflow & Git Strategy
+
+| Branch      | Purpose                                                                                             | Source Branch          | Merge Target       | Environment                       |
+| :---------- | :-------------------------------------------------------------------------------------------------- | :--------------------- | :----------------- | :-------------------------------- |
+| `main`      | **Upstream Mirror**: Tracks unmodified official Plane CE releases.                                  | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
+| `stage`     | **Staging/Integration**: Custom features, branding, and configs are integrated here.                | `stage`                | `stage`            | Staging / QA                      |
+| `prod`      | **Production Releases**: Deployed directly to our self-hosted Plane instance for team-internal use. | `stage`                | `prod`             | Production (Internal Self-Hosted) |
+| `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
+
+- **Development Rules**: Please read and follow [FORK.md](./FORK.md) and [AGENTS.md](./AGENTS.md) closely.
+  - Use the commit prefixes: `orca-feat:`, `orca-fix:`, `orca-ui:`, `orca-style:`, `orca-docs:`, `orca-chore:`, or `orca-refactor:`.
+  - Do not edit database migration files or drop core tables directly.
+  - All files must adhere to standard monorepo styling rules and preserve existing license headers.
+
+### 📝 Custom Fork Changelog
+
+All custom changes, new features, and bug fixes are automatically tracked and compiled by Release Please in [CHANGELOG.md](./CHANGELOG.md). Refer to it for the complete release history of this fork.
+
+---
+
 <br /><br />
 
 <p align="center">

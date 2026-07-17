@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "package-name": "plane-orca",
+      "release-type": "node",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": []
+    }
+  },
+  "changelog-sections": [
+    { "type": "orca-feat", "section": "Features (Orca)", "hidden": false },
+    { "type": "orca-fix", "section": "Bug Fixes (Orca)", "hidden": false },
+    { "type": "orca-ui", "section": "Branding & UI (Orca)", "hidden": false },
+    { "type": "orca-style", "section": "Styles (Orca)", "hidden": false },
+    { "type": "orca-docs", "section": "Documentation (Orca)", "hidden": false },
+    { "type": "orca-chore", "section": "Chores (Orca)", "hidden": false },
+    { "type": "orca-refactor", "section": "Code Refactoring (Orca)", "hidden": false }
+  ]
+}
