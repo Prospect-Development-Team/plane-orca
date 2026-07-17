@@ -42,6 +42,63 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      admin: ${{ steps.filter.outputs.admin }}
+      space: ${{ steps.filter.outputs.space }}
+      api: ${{ steps.filter.outputs.api }}
+      live: ${{ steps.filter.outputs.live }}
+      proxy: ${{ steps.filter.outputs.proxy }}
+      any_changed: ${{ steps.filter.outputs.changes != '[]' }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Detect Changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/stage.yml'
+            admin:
+              - 'apps/admin/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/stage.yml'
+            space:
+              - 'apps/space/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/stage.yml'
+            api:
+              - 'apps/api/**'
+              - '.github/workflows/stage.yml'
+            live:
+              - 'apps/live/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/stage.yml'
+            proxy:
+              - 'apps/proxy/**'
+              - '.github/workflows/stage.yml'
+
   ci:
     name: Code Quality Checks (CI)
     runs-on: ubuntu-latest
@@ -68,7 +125,8 @@ jobs:
 
   build-push:
     name: Build & Push ${{ matrix.service }}
-    needs: ci
+    needs: [ci, changes]
+    if: ${{ needs.changes.outputs[matrix.service] == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -139,7 +197,8 @@ jobs:
 
   deploy:
     name: Deploy to Stage (Coolify)
-    needs: build-push
+    needs: [build-push, changes]
+    if: ${{ (needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch') && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     environment: stage
     steps:
