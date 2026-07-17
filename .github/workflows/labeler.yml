@@ -1,4 +1,4 @@
-name: Pull Request Labeler
+name: Pull Request Labeler & Template Manager
 
 on:
   pull_request_target:
@@ -6,20 +6,45 @@ on:
 
 permissions:
   pull-requests: write
+  contents: read
 
 jobs:
   labeler:
-    name: Auto Label PR
+    name: Auto Label & Template PR
     runs-on: ubuntu-latest
     steps:
-      - name: Add Branch Label
+      - name: Checkout Code
+        if: github.event.pull_request.base.ref == 'prod'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Extract Version
+        if: github.event.pull_request.base.ref == 'prod'
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Update PR Properties
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
           if [ "$TARGET_BRANCH" = "prod" ]; then
+            # Add label
             gh pr edit "$PR_NUMBER" --add-label "release-candidate"
+            
+            # Update Title with version
+            gh pr edit "$PR_NUMBER" --title "orca-release: Promote Release Candidate v${{ env.VERSION }}"
+            
+            # Update Body with Release Candidate template
+            gh pr edit "$PR_NUMBER" --body "$(cat .github/PULL_REQUEST_TEMPLATE/release_candidate.md)"
           elif [ "$TARGET_BRANCH" = "stage" ]; then
+            # Add label
             gh pr edit "$PR_NUMBER" --add-label "stage-pr"
+            
+            # Update Body with Basic template (if opened fresh/empty)
+            # Standard PR creation natively applies the default PR template, so we don't overwrite basic PRs.
           fi
