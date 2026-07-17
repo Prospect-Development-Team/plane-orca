@@ -1,0 +1,247 @@
+version: '3.8'
+
+services:
+  web:
+    container_name: web
+    image: ghcr.io/Prospect-Development-Team/plane-orca/web:${TAG:-stage}
+    restart: always
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  admin:
+    container_name: admin
+    image: ghcr.io/Prospect-Development-Team/plane-orca/admin:${TAG:-stage}
+    restart: always
+    depends_on:
+      - api
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  space:
+    container_name: space
+    image: ghcr.io/Prospect-Development-Team/plane-orca/space:${TAG:-stage}
+    restart: always
+    depends_on:
+      - api
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  api:
+    container_name: api
+    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    restart: always
+    command: ./bin/docker-entrypoint-api.sh
+    environment:
+      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
+      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+    depends_on:
+      - plane-db
+      - plane-redis
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+
+  worker:
+    container_name: bgworker
+    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    restart: always
+    command: ./bin/docker-entrypoint-worker.sh
+    environment:
+      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
+      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+    depends_on:
+      - api
+      - plane-db
+      - plane-redis
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+
+  beat-worker:
+    container_name: beatworker
+    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    restart: always
+    command: ./bin/docker-entrypoint-beat.sh
+    environment:
+      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
+      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+    depends_on:
+      - api
+      - plane-db
+      - plane-redis
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  migrator:
+    container_name: plane-migrator
+    image: ghcr.io/Prospect-Development-Team/plane-orca/api:${TAG:-stage}
+    restart: no
+    command: ./bin/docker-entrypoint-migrator.sh
+    environment:
+      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
+      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+    depends_on:
+      - plane-db
+      - plane-redis
+
+  live:
+    container_name: plane-live
+    image: ghcr.io/Prospect-Development-Team/plane-orca/live:${TAG:-stage}
+    restart: always
+    environment:
+      - SECRET_KEY=${SERVICE_PASSWORD_64_DJANGO_SECRET}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_PASSWORD_64_LIVE_SECRET}
+      - DOMAIN_NAME=${COOLIFY_FQDN}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  plane-db:
+    container_name: plane-db
+    image: postgres:15.7-alpine
+    restart: always
+    command: postgres -c 'max_connections=1000'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-plane}
+      POSTGRES_DB: ${POSTGRES_DB:-plane}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plane123}
+      PGDATA: /var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  plane-redis:
+    container_name: plane-redis
+    image: valkey/valkey:7.2.11-alpine
+    restart: always
+    volumes:
+      - redisdata:/data
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+
+  plane-mq:
+    container_name: plane-mq
+    image: rabbitmq:3.13.6-management-alpine
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-plane}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-plane123}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+  plane-minio:
+    container_name: plane-minio
+    image: minio/minio
+    restart: always
+    command: server /export --console-address ":9090"
+    volumes:
+      - uploads:/export
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-plane-access-key}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+
+  # Comment this if you already have a reverse proxy running
+  proxy:
+    container_name: proxy
+    image: ghcr.io/Prospect-Development-Team/plane-orca/proxy:${TAG:-stage}
+    restart: always
+    ports:
+      - ${LISTEN_HTTP_PORT:-8000}:80
+    environment:
+      FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
+      BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
+    depends_on:
+      - web
+      - api
+      - space
+      - admin
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  rabbitmq_data:

@@ -21,6 +21,44 @@
 
 All custom changes, new features, and bug fixes are automatically tracked and compiled by Release Please in [CHANGELOG.md](./CHANGELOG.md). Refer to it for the complete release history of this fork.
 
+### 🐳 Self-Hosted Deployment (docker-compose-orca.yml)
+
+To deploy **Plane Orca** on your VPS via Coolify, we recommend using [docker-compose-orca.yml](./docker-compose-orca.yml).
+
+#### 1. Why use `docker-compose-orca.yml`?
+
+- **Pre-Built Images**: It references pre-compiled images from GHCR (e.g. `ghcr.io/.../web:stage`) built on GitHub's free Actions runners. Running a compile/build step directly on a 4GB VPS (which Next.js frontends require) will crash the server due to high compile-time RAM usage.
+- **Resource Constraints**: It defines strict memory limits (`mem_limit`) for all containers, ensuring the entire 11-service stack stays safe and stable under 3GB of runtime memory.
+
+#### 2. Fully Automated Configuration & Secrets
+
+Coolify parses `docker-compose-orca.yml` and automates the configuration using **Magic Environment Variables**. You do not need to manually generate secret keys or type your domain name:
+
+- **Automatic Domain Injection**: The compose file binds `DOMAIN_NAME` to `${COOLIFY_FQDN}`. Coolify dynamically injects the domain name you configure in the dashboard UI.
+- **Automatic Secret Generation**: `SECRET_KEY` and `LIVE_SERVER_SECRET_KEY` use Coolify's base-64 password generator. On your very first deployment, Coolify will generate cryptographically secure 64-character keys, persist them, and encrypt them at rest.
+
+##### Customizable Variables
+
+For convenience, database credentials, RabbitMQ configurations, and local MinIO storage endpoint settings are **pre-filled with safe defaults**. If you wish to customize them (e.g. changing database credentials or pointing to an external S3 store like Cloudflare R2), you can define them in Coolify's **Environment Variables** tab:
+
+| Variable                | Description                      | Default            |
+| ----------------------- | -------------------------------- | ------------------ |
+| `POSTGRES_USER`         | PostgreSQL database user.        | `plane`            |
+| `POSTGRES_PASSWORD`     | PostgreSQL database password.    | `plane123`         |
+| `POSTGRES_DB`           | PostgreSQL database schema name. | `plane`            |
+| `RABBITMQ_USER`         | RabbitMQ connection user.        | `plane`            |
+| `RABBITMQ_PASSWORD`     | RabbitMQ connection password.    | `plane123`         |
+| `AWS_ACCESS_KEY_ID`     | Storage access key.              | `plane-access-key` |
+| `AWS_SECRET_ACCESS_KEY` | Storage secret key.              | `plane-secret-key` |
+| `AWS_S3_BUCKET_NAME`    | Storage bucket name.             | `uploads`          |
+
+#### 3. Coolify-Specific Deployment Steps
+
+1. Create a new **Docker Compose** application resource in Coolify.
+2. Select your repository, branch (`stage` or `prod`), and specify the file path as `docker-compose-orca.yml`.
+3. Go to **Settings** -> **Domains** in Coolify, assign your domain (e.g., `https://plane.yourdomain.com`), and select the target service as `proxy` on port `80`.
+4. **Proxy Note**: To avoid port collisions on the host, `docker-compose-orca.yml` binds the proxy container's HTTP port to a non-standard port (`8000` by default). Do not bind host ports `80` or `443` manually in the compose file; Coolify's Traefik/Caddy proxy automatically routes the external domain traffic directly to the `proxy` service on container port `80`.
+
 ---
 
 <br /><br />

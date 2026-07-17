@@ -54,7 +54,7 @@ jobs:
 
       - name: Promote Docker Images
         run: |
-          for app in web api space live proxy; do
+          for app in web admin api space live proxy; do
             echo "Promoting ${app} image..."
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage
             docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest

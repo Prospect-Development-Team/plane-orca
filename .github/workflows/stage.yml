@@ -129,6 +129,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build and Push Admin
+      - name: Build and Push Admin Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/admin/Dockerfile.admin
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/admin:stage
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       # Build and Push Live Collaboration
       - name: Build and Push Live Image
         uses: docker/build-push-action@v7
