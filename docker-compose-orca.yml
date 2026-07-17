@@ -42,12 +42,14 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - SERVICE_HEX_64_API
+      - SECRET_KEY=${SERVICE_HEX_64_API}
+      - SERVICE_HEX_64_LIVE
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
@@ -55,7 +57,8 @@ services:
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
-      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
+      - SERVICE_URL_PROXY
+      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - plane-db
       - plane-redis
@@ -77,19 +80,20 @@ services:
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-worker.sh
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - SECRET_KEY=${SERVICE_HEX_64_API}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
-      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
+      - SERVICE_URL_PROXY
+      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - api
       - plane-db
@@ -106,19 +110,20 @@ services:
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-beat.sh
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - SECRET_KEY=${SERVICE_HEX_64_API}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
-      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
+      - SERVICE_URL_PROXY
+      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - api
       - plane-db
@@ -135,19 +140,20 @@ services:
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - SECRET_KEY=${SERVICE_HEX_64_API}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
-      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
-      - WEB_URL=${SERVICE_FQDN_PROXY:-http://localhost:8000}
+      - SERVICE_URL_PROXY
+      - WEB_URL="${SERVICE_URL_PROXY:-http://localhost:8000}"
     depends_on:
       - plane-db
       - plane-redis
@@ -157,13 +163,13 @@ services:
     image: ghcr.io/prospect-development-team/plane-orca/live:${TAG:-stage}
     restart: always
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - LIVE_SERVER_SECRET_KEY=${LIVE_SERVER_SECRET_KEY}
+      - SECRET_KEY=${SERVICE_HEX_64_API}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
+      - DATABASE_URL=postgres://${SERVICE_USER_PLANE-DB:-plane}:${SERVICE_PASSWORD_PLANE-DB:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
       - API_BASE_URL=http://api:8000
-      - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
+      - AMQP_URL=amqp://${SERVICE_USER_PLANE-MQ:-plane}:${SERVICE_PASSWORD_PLANE-MQ:-plane123}@plane-mq:5672//
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
@@ -185,9 +191,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-plane}
+      POSTGRES_USER: ${SERVICE_USER_PLANE-DB:-plane}
       POSTGRES_DB: ${POSTGRES_DB:-plane}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plane123}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_PLANE-DB:-plane123}
       PGDATA: /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-plane} -d $${POSTGRES_DB:-plane}"]
@@ -222,8 +228,8 @@ services:
     image: rabbitmq:3.13.6-management-alpine
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-plane}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-plane123}
+      RABBITMQ_DEFAULT_USER: ${SERVICE_USER_PLANE-MQ:-plane}
+      RABBITMQ_DEFAULT_PASS: ${SERVICE_PASSWORD_PLANE-MQ:-plane123}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
