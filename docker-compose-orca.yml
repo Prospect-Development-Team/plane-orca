@@ -148,6 +148,7 @@ services:
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${POSTGRES_USER:-plane}:${POSTGRES_PASSWORD:-plane123}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
+      - API_BASE_URL=http://api:8000
       - AMQP_URL=amqp://${RABBITMQ_USER:-plane}:${RABBITMQ_PASSWORD:-plane123}@plane-mq:5672//
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-plane-access-key}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-plane-secret-key}
