@@ -1,16 +1,21 @@
-name: Copy Right Check
+name: License Header Check
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - stage
+    paths:
+      - '**.py'
+      - '**.ts'
+      - '**.tsx'
   pull_request:
     branches:
       - stage
-    types:
-      - opened
-      - synchronize
-      - ready_for_review
-      - review_requested
-      - reopened
+    paths:
+      - '**.py'
+      - '**.ts'
+      - '**.tsx'
 
 jobs:
   license-check:
