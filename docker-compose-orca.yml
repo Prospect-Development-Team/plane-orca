@@ -54,6 +54,7 @@ services:
       - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
       - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
       - USE_MINIO=1
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
     depends_on:
       - plane-db
       - plane-redis
@@ -72,6 +73,7 @@ services:
     container_name: bgworker
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: always
+    exclude_from_hc: true
     command: ./bin/docker-entrypoint-worker.sh
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -99,6 +101,7 @@ services:
     container_name: beatworker
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: always
+    exclude_from_hc: true
     command: ./bin/docker-entrypoint-beat.sh
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -126,8 +129,7 @@ services:
     container_name: plane-migrator
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     restart: "no"
-    labels:
-      - "coolify.healthcheck=false"
+    exclude_from_hc: true
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -251,6 +253,7 @@ services:
     environment:
       FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
       BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
+      SITE_ADDRESS: ${SERVICE_FQDN_PROXY:-:80}
     depends_on:
       - web
       - api
