@@ -42,10 +42,10 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     environment:
-      - SERVICE_HEX_64_DJANGO_SECRET
-      - SECRET_KEY=${SERVICE_HEX_64_DJANGO_SECRET}
-      - SERVICE_HEX_64_LIVE_SECRET
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE_SECRET}
+      - SERVICE_HEX_64_DJANGO
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - SERVICE_HEX_64_LIVE
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
@@ -81,8 +81,8 @@ services:
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-worker.sh
     environment:
-      - SECRET_KEY=${SERVICE_HEX_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE_SECRET}
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
@@ -112,8 +112,8 @@ services:
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-beat.sh
     environment:
-      - SECRET_KEY=${SERVICE_HEX_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE_SECRET}
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
@@ -143,8 +143,8 @@ services:
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
-      - SECRET_KEY=${SERVICE_HEX_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE_SECRET}
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
@@ -167,8 +167,8 @@ services:
     image: ghcr.io/prospect-development-team/plane-orca/live:${TAG:-stage}
     restart: always
     environment:
-      - SECRET_KEY=${SERVICE_HEX_64_DJANGO_SECRET}
-      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE_SECRET}
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
       - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
       - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
       - REDIS_URL=redis://plane-redis:6379/0
