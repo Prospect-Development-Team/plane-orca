@@ -98,40 +98,120 @@ To maintain a clean and maintainable codebase:
 
 ---
 
-## 3. Git Strategy & Upstream Syncing
+### 3. End-to-End Git, CI/CD & Deployment Workflow
 
-To keep this fork functional when upstream Plane releases updates, follow these practices:
+To maintain upstream compatibility while shipping custom features, all developers must follow this unified lifecycle:
 
-### A. The Three-Branch Strategy
+| Lifecycle Phase          | Action / Trigger             | Source ➡️ Target                            | Automation & Behavior                                                                                                 |
+| :----------------------- | :--------------------------- | :------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------- |
+| **1. Feature Dev**       | Developer codes locally      | `stage` ➡️ `feature/*`                      | Code custom overrides/features. Maintain Conventional Commit prefixes.                                                |
+| **2. Staging PR**        | Open PR targeting Staging    | `feature/*` ➡️ `stage`                      | Auto-labeled `stage-pr` and gets the `basic.md` template checklist injected in 5s.                                    |
+| **3. Staging Deploy**    | Merge PR into Staging        | `stage`                                     | Triggers `stage.yml` CI, runs path-based matrix builds for changed folders, and redeploys Staging environment.        |
+| **4. Release Candidate** | Open PR targeting Production | `stage` ➡️ `prod`                           | Auto-labeled `release-candidate`, title set with version name, and gets `release_candidate.md` checklist in 5s.       |
+| **5. Production Deploy** | Merge RC PR into Production  | `prod`                                      | Triggers `prod.yml` to tag/promote GHCR images to `latest` and release version, and redeploys Production environment. |
+| **6. Upstream Sync**     | Pull Upstream CE updates     | `upstream` ➡️ `main` ➡️ `sync/*` ➡️ `stage` | Fetch updates into mirror (`main`), branch off `stage` to resolve conflicts in a `sync/*` branch, and merge back.     |
 
-- **`main`**: Upstream Mirror. Strictly contains unmodified code tracking Plane's official repository. No custom modifications should be committed to this branch.
-- **`stage`**: Custom Staging. The branch where custom features, branding, and config overrides are merged, integrated, and verified.
-- **`prod`**: Production. The compiled, tested, and deployed branch containing stable releases.
+### Automation Details (What is Managed Automatically)
 
-### B. Semantic Commits & Micro-PRs
+To save development time and maintain consistency, several processes are completely automated:
 
-Because you will be maintaining an active bridge between your local `main` branch (mirroring Plane) and your staging/production branches, commit discipline is critical.
+| Automated Feature           | Powered By                   | Action / Trigger         | Detailed Behavior                                                                                                                             |
+| :-------------------------- | :--------------------------- | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Changelog & Releases**    | `release-please.yml`         | Push/merge to `prod`     | Parses conventional commits (`orca-*`), updates `CHANGELOG.md` with structured tables, bumps the package version, and drafts GitHub Releases. |
+| **Path-Based Building**     | `stage.yml` + `paths-filter` | PR or push to `stage`    | Analyzes changed folders and builds only the modified applications using a parallel matrix. Unchanged services are skipped.                   |
+| **PR Labeling & Templates** | `labeler.yml`                | Opening/synchronizing PR | Automatically labels PRs, renames RC PR titles with target version from `package.json`, and applies the correct template body.                |
+| **Versioned Tagging**       | `prod.yml`                   | Push/merge to `prod`     | Reads release version from `package.json`, tags promoted GHCR images with `:v[Version]` and `:latest`, and pushes them.                       |
 
-- **Commit Small, Isolated Changes**: A pull request should do one thing (e.g., just hiding the upgrade button). If a developer merges a single giant PR changing many files, it will be nearly impossible to merge upstream security updates without breaking the build.
-- **Conventional Commits & Prefixing**: To enable automated releases and changelog grouping via **Release Please**, use the following exact commit prefixes:
+---
 
-  | Commit Prefix          | Description                                | Release Please Bump | Changelog Section       |
-  | :--------------------- | :----------------------------------------- | :------------------ | :---------------------- |
-  | `orca-feat: [msg]`     | Custom features, integrations, or sidecars | **Minor**           | Features (Orca)         |
-  | `orca-fix: [msg]`      | Bug fixes for custom code                  | **Patch**           | Bug Fixes (Orca)        |
-  | `orca-ui: [msg]`       | Branding, logo, or asset overrides         | **Patch**           | Branding & UI (Orca)    |
-  | `orca-style: [msg]`    | Custom UI spacing or style improvements    | _None_              | Styles (Orca)           |
-  | `orca-docs: [msg]`     | Documentation updates                      | _None_              | Documentation (Orca)    |
-  | `orca-chore: [msg]`    | Development setup and dependency changes   | _None_              | Chores (Orca)           |
-  | `orca-refactor: [msg]` | Code refactoring or cleanup                | _None_              | Code Refactoring (Orca) |
+### Phase 1: Local Development & Feature Branching
 
-### C. Versioning Policy
+1. **Branching**: Always branch off the **`stage`** branch:
+   ```bash
+   git checkout stage
+   git pull origin stage
+   git checkout -b feature/your-custom-feature
+   ```
+2. **Commit Hygiene**: Small, isolated commits. Use correct prefixes so **Release Please** can categorize your changes:
+   | Commit Prefix | Description | Release Please Bump | Changelog Section |
+   | :--------------------- | :----------------------------------------- | :------------------ | :---------------------- |
+   | `orca-feat: [msg]` | Custom features, integrations, or sidecars | **Minor** | Features (Orca) |
+   | `orca-fix: [msg]` | Bug fixes for custom code | **Patch** | Bug Fixes (Orca) |
+   | `orca-ui: [msg]` | Branding, logo, or asset overrides | **Patch** | Branding & UI (Orca) |
+   | `orca-style: [msg]` | Custom UI spacing or style improvements | _None_ | Styles (Orca) |
+   | `orca-docs: [msg]` | Documentation updates | _None_ | Documentation (Orca) |
+   | `orca-chore: [msg]` | Development setup and dependency changes | _None_ | Chores (Orca) |
+   | `orca-refactor: [msg]` | Code refactoring or cleanup | _None_ | Code Refactoring (Orca) |
 
-To cleanly track both upstream Plane releases and our custom modifications:
+---
 
-- **Tag & Release Format**: Use `v[UpstreamVersion]-orca.[ForkVersion]` (e.g., `v1.2.0-orca.1.0.0` or `v1.3.1-orca.1.1.2`).
-  - `[UpstreamVersion]` represents the exact release version of Plane CE being tracked.
-  - `[ForkVersion]` is a standard `MAJOR.MINOR.PATCH` sequence indicating our custom changes:
-    - **MAJOR**: Breaking custom API/schema changes, structural sidecar changes, or upgrades to a new upstream major version.
-    - **MINOR**: New custom features, modules, or non-breaking sidecar additions.
-    - **PATCH**: Bug fixes, styling tweaks, branding updates, or upstream sync merges with no custom logic changes.
+### Phase 2: Pull Request to Staging (`stage-pr`)
+
+1. **Open the PR**: Create a PR targeting the **`stage`** branch.
+2. **PR Naming**: Give the PR a title starting with your commit prefix (e.g. `orca-feat: hide upgrade button`).
+3. **PR Description Warning**: Leave the description block empty (containing only the default warning comment) and click **"Create pull request"**.
+4. **Auto-Templating**: Within 5 seconds, a background GitHub Action (`labeler.yml`) will:
+   - Label the PR with `stage-pr`.
+   - Overwrite the description with the standard **`basic.md`** template checklist.
+5. **Fill out details**: Click "Edit" on the PR description and check off the items.
+
+---
+
+### Phase 3: Integration, CI Checks & Staging Deployment
+
+Once you merge the PR into the **`stage`** branch, the **`stage.yml`** workflow triggers:
+
+1. **Lint/Format checks**: Runs `pnpm check:format` and `pnpm check:lint` on workspace packages.
+2. **Path-Based Change Detection**: Analyzes modified paths. It skips docker compilation for any application directories (`apps/web`, `apps/api`, etc.) that were not modified.
+3. **Parallel Docker Builds**: Runs matrix builds concurrently on separate GitHub runners for modified services.
+4. **Staging Deploy**: Triggers your staging Coolify server to redeploy using the newly built images from GHCR.
+
+---
+
+### Phase 4: Release Candidate & Production Promotion
+
+When staging is verified and you are ready to release to production:
+
+1. **Open the PR**: Create a PR from **`stage`** targeting the **`prod`** branch.
+2. **PR Creation**: Do **NOT** edit the title or description when creating. Just click **"Create pull request"**.
+3. **Auto-Templating & PR Naming**: The automation workflow will:
+   - Label the PR with `release-candidate`.
+   - Inspect `package.json`, read the new version number, and rename the PR title to: `orca-release: Promote Release Candidate v[Version]`.
+   - Replace the description with the **`release_candidate.md`** QA checklist.
+4. **Verify release**: Reviewers verify staging builds, check off database migration safety, confirm production environment variables are updated, and sign off on the QA items.
+5. **Production Deploy**: Merging the PR into **`prod`** triggers the **`prod.yml`** workflow:
+   - Pulls the built `:stage` images from GHCR.
+   - Retags all images to `:latest` and the release version tag `:[Version]`.
+   - Pushes them to GHCR and triggers Coolify to redeploy the production server.
+
+---
+
+### Phase 5: Upstream Syncing
+
+To sync new releases from official Plane CE upstream into our fork:
+
+1. Fetch upstream changes into your local mirror:
+   ```bash
+   git checkout main
+   git pull upstream main
+   git push origin main
+   ```
+2. Create a temporary sync branch off **`stage`**:
+   ```bash
+   git checkout stage
+   git pull origin stage
+   git checkout -b sync/upstream-merge-[date]
+   ```
+3. Merge the mirror branch (`main`) into your sync branch:
+   ```bash
+   git merge main
+   # Resolve any code, asset, or styling conflicts locally
+   ```
+4. Verify the build and check-in your fixes, then merge back to **`stage`**:
+   ```bash
+   # Once resolved and committed:
+   git checkout stage
+   git merge sync/upstream-merge-[date]
+   git push origin stage
+   git branch -d sync/upstream-merge-[date]
+   ```
