@@ -45,6 +45,9 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Lowercase Image Name
+        run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:

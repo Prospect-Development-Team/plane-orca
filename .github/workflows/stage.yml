@@ -67,15 +67,40 @@ jobs:
           pnpm check:lint
 
   build-push:
-    name: Build & Push Docker Images
+    name: Build & Push ${{ matrix.service }}
     needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            context: .
+            file: ./apps/web/Dockerfile.web
+          - service: api
+            context: ./apps/api
+            file: ./apps/api/Dockerfile.api
+          - service: space
+            context: .
+            file: ./apps/space/Dockerfile.space
+          - service: admin
+            context: .
+            file: ./apps/admin/Dockerfile.admin
+          - service: live
+            context: .
+            file: ./apps/live/Dockerfile.live
+          - service: proxy
+            context: ./apps/proxy
+            file: ./apps/proxy/Dockerfile.ce
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
+
+      - name: Lowercase Image Name
+        run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -94,69 +119,13 @@ jobs:
           docker image prune -a -f --filter "until=24h"
           docker builder prune -a -f --filter "until=24h"
 
-      # Build and Push Web
-      - name: Build and Push Web Image
+      - name: Build and Push ${{ matrix.service }}
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: ./apps/web/Dockerfile.web
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:stage
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Build and Push Backend API
-      - name: Build and Push API Image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./apps/api
-          file: ./apps/api/Dockerfile.api
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:stage
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Build and Push Space
-      - name: Build and Push Space Image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./apps/space/Dockerfile.space
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/space:stage
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Build and Push Admin
-      - name: Build and Push Admin Image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./apps/admin/Dockerfile.admin
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/admin:stage
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Build and Push Live Collaboration
-      - name: Build and Push Live Image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./apps/live/Dockerfile.live
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/live:stage
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Build and Push Proxy
-      - name: Build and Push Proxy Image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./apps/proxy
-          file: ./apps/proxy/Dockerfile.ce
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/proxy:stage
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:stage
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
