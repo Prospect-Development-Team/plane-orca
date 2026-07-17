@@ -1,0 +1,25 @@
+name: Pull Request Labeler
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronized]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  labeler:
+    name: Auto Label PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add Branch Label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$TARGET_BRANCH" = "prod" ]; then
+            gh pr edit "$PR_NUMBER" --add-label "release-candidate"
+          elif [ "$TARGET_BRANCH" = "stage" ]; then
+            gh pr edit "$PR_NUMBER" --add-label "stage-pr"
+          fi
