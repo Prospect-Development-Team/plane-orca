@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        if: github.event.pull_request.base.ref == 'prod'
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -45,6 +44,6 @@ jobs:
             # Add label
             gh pr edit "$PR_NUMBER" --add-label "stage-pr"
             
-            # Update Body with Basic template (if opened fresh/empty)
-            # Standard PR creation natively applies the default PR template, so we don't overwrite basic PRs.
+            # Update Body with Basic template
+            gh pr edit "$PR_NUMBER" --body "$(cat .github/PULL_REQUEST_TEMPLATE/basic.md)"
           fi
