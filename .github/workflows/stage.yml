@@ -63,8 +63,8 @@ jobs:
 
       - name: Run Format and Lint Checks
         run: |
-          pnpm exec oxfmt --check .
-          pnpm exec oxlint --deny-warnings
+          pnpm check:format
+          pnpm check:lint
 
   build-push:
     name: Build & Push Docker Images
