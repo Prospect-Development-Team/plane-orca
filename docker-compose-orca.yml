@@ -57,6 +57,12 @@ services:
     depends_on:
       - plane-db
       - plane-redis
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -119,7 +125,9 @@ services:
   migrator:
     container_name: plane-migrator
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
-    restart: no
+    restart: "no"
+    labels:
+      - "coolify.healthcheck=false"
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -175,6 +183,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-plane}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plane123}
       PGDATA: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-plane} -d $${POSTGRES_DB:-plane}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -186,6 +200,12 @@ services:
     restart: always
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     deploy:
       resources:
         limits:
@@ -236,6 +256,12 @@ services:
       - api
       - space
       - admin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
