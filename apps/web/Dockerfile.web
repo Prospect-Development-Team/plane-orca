@@ -18,6 +18,9 @@ ARG TURBO_VERSION=2.9.4
 RUN corepack enable pnpm && pnpm add -g turbo@${TURBO_VERSION}
 COPY . .
 
+# Extract version from root package.json before turbo prune reorganizes the file tree
+RUN node -e "process.stdout.write(require('./package.json').version)" > /tmp/app_version.txt
+
 RUN turbo prune --scope=web --docker
 
 # *****************************************************************************
@@ -67,10 +70,14 @@ ENV VITE_SPACE_BASE_PATH=$VITE_SPACE_BASE_PATH
 ARG VITE_WEB_BASE_URL=""
 ENV VITE_WEB_BASE_URL=$VITE_WEB_BASE_URL
 
+# Copy the version file extracted before turbo prune and inject it into the Vite build
+COPY --from=builder /tmp/app_version.txt /tmp/app_version.txt
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBO_TELEMETRY_DISABLED=1
 
-RUN pnpm turbo run build --filter=web
+# Pass version inline so it's available to Vite's process.env (collected as a VITE_* var)
+RUN VITE_APP_VERSION=$(cat /tmp/app_version.txt) pnpm turbo run build --filter=web
 
 # *****************************************************************************
 # STAGE 3: Serve with nginx
