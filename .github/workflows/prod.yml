@@ -24,7 +24,8 @@ name: Production CI/CD
 
 on:
   push:
-    branches: [prod]
+    branches:
+      - prod
 
 concurrency:
   group: prod-${{ github.ref }}
@@ -40,6 +41,7 @@ env:
 jobs:
   promote:
     name: Promote Images (Stage -> Production)
+    if: "${{ contains(github.event.head_commit.message, 'chore(prod): release') }}"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -267,7 +269,7 @@ jobs:
 
   sync-stage:
     name: Sync Prod to Stage
-    needs: deploy
+    if: "${{ contains(github.event.head_commit.message, 'chore(prod): release') }}"
     runs-on: ubuntu-latest
     permissions:
       contents: write
