@@ -7,28 +7,28 @@
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
+      "include-v-in-tag": true,
       "include-component-in-tag": false,
-      "tag-prefix": "v",
+      "changelog-sections": [
+        { "type": "orca-feat", "section": "Features (Orca)", "hidden": false },
+        { "type": "orca-fix", "section": "Bug Fixes (Orca)", "hidden": false },
+        { "type": "orca-ui", "section": "Branding & UI (Orca)", "hidden": false },
+        { "type": "orca-style", "section": "Styles (Orca)", "hidden": false },
+        { "type": "orca-docs", "section": "Documentation (Orca)", "hidden": false },
+        { "type": "orca-chore", "section": "Chores (Orca)", "hidden": false },
+        { "type": "orca-refactor", "section": "Code Refactoring (Orca)", "hidden": false },
+        { "type": "feat", "hidden": true },
+        { "type": "fix", "hidden": true },
+        { "type": "chore", "hidden": true },
+        { "type": "docs", "hidden": true },
+        { "type": "style", "hidden": true },
+        { "type": "refactor", "hidden": true },
+        { "type": "perf", "hidden": true },
+        { "type": "test", "hidden": true },
+        { "type": "ci", "hidden": true },
+        { "type": "build", "hidden": true }
+      ],
       "extra-files": []
     }
-  },
-  "changelog-sections": [
-    { "type": "orca-feat", "section": "Features (Orca)", "hidden": false },
-    { "type": "orca-fix", "section": "Bug Fixes (Orca)", "hidden": false },
-    { "type": "orca-ui", "section": "Branding & UI (Orca)", "hidden": false },
-    { "type": "orca-style", "section": "Styles (Orca)", "hidden": false },
-    { "type": "orca-docs", "section": "Documentation (Orca)", "hidden": false },
-    { "type": "orca-chore", "section": "Chores (Orca)", "hidden": false },
-    { "type": "orca-refactor", "section": "Code Refactoring (Orca)", "hidden": false },
-    { "type": "feat", "hidden": true },
-    { "type": "fix", "hidden": true },
-    { "type": "chore", "hidden": true },
-    { "type": "docs", "hidden": true },
-    { "type": "style", "hidden": true },
-    { "type": "refactor", "hidden": true },
-    { "type": "perf", "hidden": true },
-    { "type": "test", "hidden": true },
-    { "type": "ci", "hidden": true },
-    { "type": "build", "hidden": true }
-  ]
+  }
 }
