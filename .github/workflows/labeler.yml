@@ -31,6 +31,16 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
+          # Fetch current PR body to see if it is empty or matches default template warning
+          CURRENT_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body')
+          
+          # Check if the body is empty (ignoring whitespace) or contains the default instructions/warning
+          if [ -z "$(echo "$CURRENT_BODY" | tr -d '[:space:]')" ] || echo "$CURRENT_BODY" | grep -q "READ THIS BEFORE CREATING YOUR PULL REQUEST"; then
+            SHOULD_TEMPLATIZE=true
+          else
+            SHOULD_TEMPLATIZE=false
+          fi
+
           if [ "$TARGET_BRANCH" = "prod" ]; then
             # Add label
             gh pr edit "$PR_NUMBER" --add-label "release-candidate"
@@ -38,12 +48,16 @@ jobs:
             # Update Title with version
             gh pr edit "$PR_NUMBER" --title "orca-release: Promote Release Candidate v${{ env.VERSION }}"
             
-            # Update Body with Release Candidate template
-            gh pr edit "$PR_NUMBER" --body "$(cat .github/PULL_REQUEST_TEMPLATE/release_candidate.md)"
+            # Update Body with Release Candidate template if not already customized
+            if [ "$SHOULD_TEMPLATIZE" = "true" ]; then
+              gh pr edit "$PR_NUMBER" --body "$(cat .github/PULL_REQUEST_TEMPLATE/release_candidate.md)"
+            fi
           elif [ "$TARGET_BRANCH" = "stage" ]; then
             # Add label
             gh pr edit "$PR_NUMBER" --add-label "stage-pr"
             
-            # Update Body with Basic template
-            gh pr edit "$PR_NUMBER" --body "$(cat .github/PULL_REQUEST_TEMPLATE/basic.md)"
+            # Update Body with Basic template if not already customized
+            if [ "$SHOULD_TEMPLATIZE" = "true" ]; then
+              gh pr edit "$PR_NUMBER" --body "$(cat .github/PULL_REQUEST_TEMPLATE/basic.md)"
+            fi
           fi
