@@ -6,7 +6,6 @@ ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 
 ENV INSTANCE_CHANGELOG_URL=https://sites.plane.so/pages/691ef037bcfe416a902e48cb55f59891/
 
-
 # Update system packages for security
 RUN apk update && apk upgrade
 
@@ -52,12 +51,6 @@ COPY ./bin ./bin/
 RUN mkdir -p /code/plane/logs
 RUN chmod +x ./bin/*
 RUN chmod -R 777 /code
-
-# Custom override: accept the root workspace version from the GitHub Actions build.
-# Placed here (after all expensive installation layers) so version bumps only
-# bust this final lightweight layer, not the pip/apk install cache.
-ARG APP_VERSION=""
-ENV APP_VERSION=$APP_VERSION
 
 # Expose container port and run entry point script
 EXPOSE 8000
