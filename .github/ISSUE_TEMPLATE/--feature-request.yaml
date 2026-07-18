@@ -1,13 +1,12 @@
 name: Feature request
-description: Suggest a feature to improve Plane
+description: Suggest a feature to improve Plane Orca
 title: "[feature]: "
-labels: [✨feature, plane]
-assignees: [vihar, pushya22]
+labels: [✨feature, orca]
 body:
 - type: markdown
   attributes:
     value: |
-      Thank you for taking the time to request a feature for Plane
+      Thank you for taking the time to request a feature for Plane Orca.
 - type: checkboxes
   attributes:
     label: Is there an existing issue for this?

@@ -34,14 +34,22 @@ type CycleModalProps = {
 // services
 const cycleService = new CycleService();
 
+/**
+ * @description Modal component to create or update cycles.
+ * Custom behavior: If `parallel_cycles` is enabled for the active project, the modal allows overlapping dates
+ * by bypassing the date overlap validation when submitting the form.
+ */
 export function CycleCreateUpdateModal(props: CycleModalProps) {
   const { isOpen, handleClose, data, workspaceSlug, projectId } = props;
   // states
   const [activeProject, setActiveProject] = useState<string | null>(null);
   // store hooks
-  const { workspaceProjectIds } = useProject();
+  const { workspaceProjectIds, getProjectById } = useProject();
   const { createCycle, updateCycleDetails } = useCycle();
   const { isMobile } = usePlatformOS();
+
+  const projectDetails = getProjectById(projectId);
+  const parallelCyclesEnabled = !!projectDetails?.parallel_cycles;
 
   const { setValue: setCycleTab } = useLocalStorage<TCycleTabOptions>("cycle_tab", "active");
 
@@ -49,62 +57,59 @@ export function CycleCreateUpdateModal(props: CycleModalProps) {
     if (!workspaceSlug || !projectId) return;
 
     const selectedProjectId = payload.project_id ?? projectId.toString();
-    await createCycle(workspaceSlug, selectedProjectId, payload)
-      .then((_res) => {
-        // mutate when the current cycle creation is active
-        if (payload.start_date && payload.end_date) {
-          const currentDate = new Date();
-          const cycleStartDate = new Date(payload.start_date);
-          const cycleEndDate = new Date(payload.end_date);
-          if (currentDate >= cycleStartDate && currentDate <= cycleEndDate) {
-            mutate(`PROJECT_ACTIVE_CYCLE_${selectedProjectId}`);
-          }
+    try {
+      await createCycle(workspaceSlug, selectedProjectId, payload);
+      // mutate when the current cycle creation is active
+      if (payload.start_date && payload.end_date) {
+        const currentDate = new Date();
+        const cycleStartDate = new Date(payload.start_date);
+        const cycleEndDate = new Date(payload.end_date);
+        if (currentDate >= cycleStartDate && currentDate <= cycleEndDate) {
+          mutate(`PROJECT_ACTIVE_CYCLE_${selectedProjectId}`);
         }
+      }
 
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: "Success!",
-          message: "Cycle created successfully.",
-        });
-      })
-      .catch((err) => {
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: err?.detail ?? "Error in creating cycle. Please try again.",
-        });
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Success!",
+        message: "Cycle created successfully.",
       });
+    } catch (err: any) {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: err?.detail ?? "Error in creating cycle. Please try again.",
+      });
+    }
   };
 
   const handleUpdateCycle = async (cycleId: string, payload: Partial<ICycle>) => {
     if (!workspaceSlug || !projectId) return;
 
     const selectedProjectId = payload.project_id ?? projectId.toString();
-    await updateCycleDetails(workspaceSlug, selectedProjectId, cycleId, payload)
-      .then((_res) => {
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: "Success!",
-          message: "Cycle updated successfully.",
-        });
-      })
-      .catch((err) => {
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: err?.detail ?? "Error in updating cycle. Please try again.",
-        });
+    try {
+      await updateCycleDetails(workspaceSlug, selectedProjectId, cycleId, payload);
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Success!",
+        message: "Cycle updated successfully.",
       });
+    } catch (err: any) {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: err?.detail ?? "Error in updating cycle. Please try again.",
+      });
+    }
   };
 
-  const dateChecker = async (projectId: string, payload: CycleDateCheckData) => {
-    let status = false;
-
-    await cycleService.cycleDateCheck(workspaceSlug, projectId, payload).then((res) => {
-      status = res.status;
-    });
-
-    return status;
+  const dateChecker = async (idOfProject: string, payload: CycleDateCheckData) => {
+    try {
+      const res = await cycleService.cycleDateCheck(workspaceSlug, idOfProject, payload);
+      return res.status;
+    } catch {
+      return false;
+    }
   };
 
   const handleFormSubmit = async (formData: Partial<ICycle>) => {
@@ -118,7 +123,8 @@ export function CycleCreateUpdateModal(props: CycleModalProps) {
 
     let isDateValid: boolean = true;
 
-    if (payload.start_date && payload.end_date) {
+    // Orca Custom Override: Bypass date overlap checks if parallel cycles are enabled for this project
+    if (payload.start_date && payload.end_date && !parallelCyclesEnabled) {
       if (data?.id) {
         // Update existing cycle - only check dates if they've changed
         const originalStartDate = renderFormattedPayloadDate(data.start_date) ?? null;
@@ -142,11 +148,19 @@ export function CycleCreateUpdateModal(props: CycleModalProps) {
     }
 
     if (isDateValid) {
-      if (data?.id) await handleUpdateCycle(data.id, payload);
-      else {
-        await handleCreateCycle(payload).then(() => {
-          setCycleTab("all");
-        });
+      if (data?.id) {
+        const originalStartDate = renderFormattedPayloadDate(data.start_date) ?? null;
+        const originalEndDate = renderFormattedPayloadDate(data.end_date) ?? null;
+        if (payload.start_date === originalStartDate) {
+          delete payload.start_date;
+        }
+        if (payload.end_date === originalEndDate) {
+          delete payload.end_date;
+        }
+        await handleUpdateCycle(data.id, payload);
+      } else {
+        await handleCreateCycle(payload);
+        setCycleTab("all");
       }
       handleClose();
     } else

@@ -26,6 +26,10 @@ type ModuleButtonContentProps = {
   className?: string;
 };
 
+/**
+ * @description Renders the content of the module dropdown button.
+ * Custom behavior: Formats multiple selected module displays with "+Count" suffix (e.g. "Module Name +1").
+ */
 export function ModuleButtonContent(props: ModuleButtonContentProps) {
   const {
     disabled,
@@ -51,12 +55,19 @@ export function ModuleButtonContent(props: ModuleButtonContentProps) {
           <div className="relative flex max-w-full items-center gap-1">
             {!hideIcon && <ModuleIcon className="h-3 w-3 flex-shrink-0" />}
             {(value.length > 0 || !!placeholder) && (
-              <div className="max-w-40 truncate">
-                {value.length > 0
-                  ? value.length === 1
-                    ? `${getModuleById(value[0])?.name || "module"}`
-                    : `${value.length} Module${value.length === 1 ? "" : "s"}`
-                  : placeholder}
+              <div className="flex max-w-40 min-w-0 items-center gap-1">
+                {value.length > 0 ? (
+                  value.length === 1 ? (
+                    <span className="truncate">{getModuleById(value[0])?.name || "module"}</span>
+                  ) : (
+                    <>
+                      <span className="truncate">{getModuleById(value[0])?.name || "module"}</span>
+                      <span className="flex-shrink-0">+{value.length - 1}</span>
+                    </>
+                  )
+                ) : (
+                  <span className="truncate">{placeholder}</span>
+                )}
               </div>
             )}
           </div>

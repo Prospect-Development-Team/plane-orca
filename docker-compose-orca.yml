@@ -1,0 +1,292 @@
+version: '3.8'
+
+services:
+  web:
+    container_name: web
+    image: ghcr.io/prospect-development-team/plane-orca/web:${TAG:-stage}
+    restart: always
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  admin:
+    container_name: admin
+    image: ghcr.io/prospect-development-team/plane-orca/admin:${TAG:-stage}
+    restart: always
+    depends_on:
+      - api
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  space:
+    container_name: space
+    image: ghcr.io/prospect-development-team/plane-orca/space:${TAG:-stage}
+    restart: always
+    depends_on:
+      - api
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  api:
+    container_name: api
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    restart: always
+    command: ./bin/docker-entrypoint-api.sh
+    environment:
+      - SERVICE_HEX_64_DJANGO
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - SERVICE_HEX_64_LIVE
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
+      - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${SERVICE_USER_RABBITMQ:-plane}:${SERVICE_PASSWORD_RABBITMQ:-plane}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_AWS:-access-key}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_AWS:-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
+      - FILE_SIZE_LIMIT=${FILE_SIZE_LIMIT:-5242880}
+      - SERVICE_URL_PROXY
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
+    depends_on:
+      - plane-db
+      - plane-redis
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+
+  worker:
+    container_name: bgworker
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    restart: always
+    exclude_from_hc: true
+    command: ./bin/docker-entrypoint-worker.sh
+    environment:
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
+      - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${SERVICE_USER_RABBITMQ:-plane}:${SERVICE_PASSWORD_RABBITMQ:-plane}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_AWS:-access-key}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_AWS:-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+      - FILE_SIZE_LIMIT=${FILE_SIZE_LIMIT:-5242880}
+      - SERVICE_URL_PROXY
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
+    depends_on:
+      - api
+      - plane-db
+      - plane-redis
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+
+  beat-worker:
+    container_name: beatworker
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    restart: always
+    exclude_from_hc: true
+    command: ./bin/docker-entrypoint-beat.sh
+    environment:
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
+      - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${SERVICE_USER_RABBITMQ:-plane}:${SERVICE_PASSWORD_RABBITMQ:-plane}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_AWS:-access-key}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_AWS:-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+      - FILE_SIZE_LIMIT=${FILE_SIZE_LIMIT:-5242880}
+      - SERVICE_URL_PROXY
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
+    depends_on:
+      - api
+      - plane-db
+      - plane-redis
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  migrator:
+    container_name: plane-migrator
+    image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    restart: "no"
+    exclude_from_hc: true
+    command: ./bin/docker-entrypoint-migrator.sh
+    environment:
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
+      - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - AMQP_URL=amqp://${SERVICE_USER_RABBITMQ:-plane}:${SERVICE_PASSWORD_RABBITMQ:-plane}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_AWS:-access-key}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_AWS:-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+      - FILE_SIZE_LIMIT=${FILE_SIZE_LIMIT:-5242880}
+      - SERVICE_URL_PROXY
+      - "WEB_URL=${SERVICE_URL_PROXY:-http://localhost:8000}"
+    depends_on:
+      - plane-db
+      - plane-redis
+
+  live:
+    container_name: plane-live
+    image: ghcr.io/prospect-development-team/plane-orca/live:${TAG:-stage}
+    restart: always
+    environment:
+      - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
+      - LIVE_SERVER_SECRET_KEY=${SERVICE_HEX_64_LIVE}
+      - DOMAIN_NAME=${SERVICE_FQDN_PROXY:-localhost}
+      - DATABASE_URL=postgres://${SERVICE_USER_DATABASE:-plane}:${SERVICE_PASSWORD_DATABASE:-plane}@plane-db:5432/${POSTGRES_DB:-plane}
+      - REDIS_URL=redis://plane-redis:6379/0
+      - API_BASE_URL=http://api:8000
+      - AMQP_URL=amqp://${SERVICE_USER_RABBITMQ:-plane}:${SERVICE_PASSWORD_RABBITMQ:-plane}@plane-mq:5672//
+      - AWS_ACCESS_KEY_ID=${SERVICE_USER_AWS:-access-key}
+      - AWS_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_AWS:-secret-key}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - AWS_S3_ENDPOINT_URL=http://plane-minio:9000
+      - BUCKET_NAME=${AWS_S3_BUCKET_NAME:-uploads}
+      - USE_MINIO=1
+      - FILE_SIZE_LIMIT=${FILE_SIZE_LIMIT:-5242880}
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  plane-db:
+    container_name: plane-db
+    image: postgres:15.7-alpine
+    restart: always
+    command: postgres -c 'max_connections=1000'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_DATABASE:-plane}
+      POSTGRES_DB: ${POSTGRES_DB:-plane}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_DATABASE:-plane}
+      PGDATA: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-plane} -d $${POSTGRES_DB:-plane}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  plane-redis:
+    container_name: plane-redis
+    image: valkey/valkey:7.2.11-alpine
+    restart: always
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+
+  plane-mq:
+    container_name: plane-mq
+    image: rabbitmq:3.13.6-management-alpine
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${SERVICE_USER_RABBITMQ:-plane}
+      RABBITMQ_DEFAULT_PASS: ${SERVICE_PASSWORD_RABBITMQ:-plane}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+  plane-minio:
+    container_name: plane-minio
+    image: minio/minio
+    restart: always
+    command: server /export --console-address ":9090"
+    volumes:
+      - uploads:/export
+    environment:
+      MINIO_ROOT_USER: ${SERVICE_USER_AWS:-access-key}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_AWS:-secret-key}
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+
+  # Comment this if you already have a reverse proxy running
+  proxy:
+    container_name: proxy
+    image: ghcr.io/prospect-development-team/plane-orca/proxy:${TAG:-stage}
+    restart: always
+    expose:
+      - 80
+    environment:
+      FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
+      BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
+      SITE_ADDRESS: :80
+    depends_on:
+      - web
+      - api
+      - space
+      - admin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  rabbitmq_data:

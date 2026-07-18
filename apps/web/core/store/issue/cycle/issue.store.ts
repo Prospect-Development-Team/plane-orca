@@ -7,6 +7,7 @@
 import { get, set, concat, uniq, update } from "lodash-es";
 import { action, observable, makeObservable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
+import { mutate } from "swr";
 // plane imports
 import { ALL_ISSUES } from "@plane/constants";
 import type {
@@ -142,6 +143,12 @@ export class CycleIssues extends BaseIssuesStore implements ICycleIssues {
 
     if (projectId && cycleId) {
       this.rootIssueStore.rootStore.cycle.fetchCycleDetails(workspaceSlug, projectId, cycleId);
+      this.rootIssueStore.rootStore.cycle.fetchActiveCycleProgress(workspaceSlug, projectId, cycleId);
+      this.rootIssueStore.rootStore.cycle.fetchActiveCycleAnalytics(workspaceSlug, projectId, cycleId, "issues");
+      this.rootIssueStore.rootStore.cycle.fetchActiveCycleAnalytics(workspaceSlug, projectId, cycleId, "points");
+      mutate(`PROJECT_ACTIVE_CYCLE_${projectId}_PROGRESS_${cycleId}`);
+      mutate(`PROJECT_ACTIVE_CYCLE_${projectId}_DURATION_${cycleId}`);
+      mutate(`PROJECT_ACTIVE_CYCLE_${projectId}_ESTIMATE_DURATION_${cycleId}`);
     }
     // fetch cycle progress
     const isSidebarCollapsed = storage.get("cycle_sidebar_collapsed");
@@ -168,6 +175,17 @@ export class CycleIssues extends BaseIssuesStore implements ICycleIssues {
       const cycleId = id ?? this.cycleId;
       if (cycleId) {
         this.rootIssueStore.rootStore.cycle.updateCycleDistribution(distributionUpdates, cycleId);
+        const workspaceSlug = this.rootIssueStore.rootStore.router.workspaceSlug;
+        const projectId = this.rootIssueStore.rootStore.router.projectId;
+        if (workspaceSlug && projectId) {
+          this.rootIssueStore.rootStore.cycle.fetchCycleDetails(workspaceSlug, projectId, cycleId);
+          this.rootIssueStore.rootStore.cycle.fetchActiveCycleProgress(workspaceSlug, projectId, cycleId);
+          this.rootIssueStore.rootStore.cycle.fetchActiveCycleAnalytics(workspaceSlug, projectId, cycleId, "issues");
+          this.rootIssueStore.rootStore.cycle.fetchActiveCycleAnalytics(workspaceSlug, projectId, cycleId, "points");
+          mutate(`PROJECT_ACTIVE_CYCLE_${projectId}_PROGRESS_${cycleId}`);
+          mutate(`PROJECT_ACTIVE_CYCLE_${projectId}_DURATION_${cycleId}`);
+          mutate(`PROJECT_ACTIVE_CYCLE_${projectId}_ESTIMATE_DURATION_${cycleId}`);
+        }
       }
     } catch (_e) {
       console.warn("could not update cycle statistics");

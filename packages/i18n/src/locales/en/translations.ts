@@ -659,6 +659,11 @@ export default {
       make_a_copy: "Make a copy",
       open_in_new_tab: "Open in new tab",
       copy_link: "Copy link",
+      copy_title: "Copy title",
+      copy_description: "Copy description",
+      copy_title_and_description: "Copy title & description",
+      copy_details: "Copy details",
+      copy: "Copy...",
       archive: "Archive",
       restore: "Restore",
       delete: "Delete",
@@ -1575,6 +1580,16 @@ export default {
           },
         },
       },
+      project_states: {
+        title: "Project States",
+        heading: "Project States",
+        description: "Manage project states for lifecycle classification and progress tracking.",
+      },
+      project_labels: {
+        title: "Project Labels",
+        heading: "Project Labels",
+        description: "Manage project labels for categorization and board/list grouping.",
+      },
       api_tokens: {
         title: "Personal Access Tokens",
         add_token: "Add personal access token",
@@ -1849,6 +1864,15 @@ export default {
       },
     },
     features: {
+      title: "Features",
+      description: "Enable or disable features for this project.",
+      toast: {
+        loading: "Updating {feature}...",
+        success_title: "Success!",
+        success: "{feature} updated successfully.",
+        error_title: "Error!",
+        error: "Failed to update {feature}. Please try again.",
+      },
       cycles: {
         title: "Cycles",
         short_title: "Cycles",
@@ -1899,7 +1923,7 @@ export default {
     start_date: "Start date",
     end_date: "End date",
     in_your_timezone: "In your timezone",
-    transfer_work_items: "Transfer {count} work items",
+    transfer_work_items: "Transfer {count} incomplete work items",
     date_range: "Date range",
     add_date: "Add date",
     active_cycle: {

@@ -46,7 +46,7 @@ function FeaturesCyclesSettingsPage({ params }: Route.ComponentProps) {
           title={t("project_settings.features.cycles.title")}
           description={t("project_settings.features.cycles.description")}
         />
-        <div className="mt-7">
+        <div className="mt-7 space-y-6">
           <ProjectSettingsFeatureControlItem
             title={t("project_settings.features.cycles.toggle_title")}
             description={t("project_settings.features.cycles.toggle_description")}
@@ -55,6 +55,16 @@ function FeaturesCyclesSettingsPage({ params }: Route.ComponentProps) {
             value={!!currentProjectDetails?.cycle_view}
             workspaceSlug={workspaceSlug}
           />
+          {currentProjectDetails?.cycle_view && (
+            <ProjectSettingsFeatureControlItem
+              title="Parallel cycles"
+              description="Run multiple active cycles simultaneously with overlapping date ranges."
+              featureProperty="parallel_cycles"
+              projectId={projectId}
+              value={!!currentProjectDetails?.parallel_cycles}
+              workspaceSlug={workspaceSlug}
+            />
+          )}
         </div>
       </section>
     </SettingsContentWrapper>

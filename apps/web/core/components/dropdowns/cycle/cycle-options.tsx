@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { Placement } from "@popperjs/core";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
@@ -52,14 +52,23 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
   const { getProjectCycleIds, fetchAllCycles, getCycleById } = useCycle();
   const { isMobile } = usePlatformOS();
 
+  const cycleIds = (getProjectCycleIds(projectId) ?? [])?.filter((cycleId) => {
+    if (currentCycleId && currentCycleId === cycleId) return false;
+    return true;
+  });
+
+  const onOpen = useCallback(() => {
+    if (workspaceSlug && !cycleIds) fetchAllCycles(workspaceSlug.toString(), projectId);
+  }, [workspaceSlug, cycleIds, fetchAllCycles, projectId]);
+
   useEffect(() => {
     if (isOpen) {
       onOpen();
       if (!isMobile) {
-        inputRef.current && inputRef.current.focus();
+        inputRef.current?.focus();
       }
     }
-  }, [isOpen, isMobile]);
+  }, [isOpen, isMobile, onOpen]);
 
   // popper-js init
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
@@ -73,16 +82,6 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
       },
     ],
   });
-
-  const cycleIds = (getProjectCycleIds(projectId) ?? [])?.filter((cycleId) => {
-    const cycleDetails = getCycleById(cycleId);
-    if (currentCycleId && currentCycleId === cycleId) return false;
-    return cycleDetails?.status ? (cycleDetails?.status.toLowerCase() != "completed" ? true : false) : true;
-  });
-
-  const onOpen = () => {
-    if (workspaceSlug && !cycleIds) fetchAllCycles(workspaceSlug.toString(), projectId);
-  };
 
   const searchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (query !== "" && e.key === "Escape") {

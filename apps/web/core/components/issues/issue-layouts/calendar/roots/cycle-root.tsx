@@ -16,15 +16,15 @@ import { CycleIssueQuickActions } from "../../quick-action-dropdowns";
 import { BaseCalendarRoot } from "../base-calendar-root";
 
 export const CycleCalendarLayout = observer(function CycleCalendarLayout() {
-  const { currentProjectCompletedCycleIds } = useCycle();
+  const { getCycleById } = useCycle();
   const { workspaceSlug, projectId, cycleId } = useParams();
 
   const {
     issues: { addIssueToCycle },
   } = useIssues(EIssuesStoreType.CYCLE);
 
-  const isCompletedCycle =
-    cycleId && currentProjectCompletedCycleIds ? currentProjectCompletedCycleIds.includes(cycleId.toString()) : false;
+  const cycleDetails = cycleId ? getCycleById(cycleId.toString()) : null;
+  const isCompletedCycle = !!cycleDetails?.archived_at;
 
   const addIssuesToView = useCallback(
     (issueIds: string[]) => {

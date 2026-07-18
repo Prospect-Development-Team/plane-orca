@@ -131,6 +131,7 @@ from .issue.base import (
 from .issue.activity import IssueActivityEndpoint
 
 from .issue.archive import IssueArchiveViewSet, BulkArchiveIssuesEndpoint
+from .issue.bulk_operations import BulkIssueOperationsEndpoint
 
 from .issue.attachment import (
     IssueAttachmentEndpoint,
@@ -238,3 +239,16 @@ from .notification.base import MarkAllReadNotificationViewSet
 from .user.base import AccountEndpoint, ProfileEndpoint, UserSessionEndpoint
 
 from .timezone.base import TimezoneEndpoint
+from .project_state import (
+    WorkspaceProjectStateSettingsEndpoint,
+    ProjectStateViewSet,
+    ProjectStatePropertyEndpoint,
+)
+from .project_label import (
+    WorkspaceProjectLabelSettingsEndpoint,
+    WorkspaceProjectLabelViewSet,
+    ProjectLabelPropertyEndpoint,
+    ProjectProjectLabelEndpoint,
+)
+
+

@@ -1,0 +1,291 @@
+# =============================================================================
+# Prod: Image Promotion & Deploy (Plane Orca Production)
+# =============================================================================
+#
+# When: You push to the "main" branch.
+# Where: Runs on GitHub Actions runners (ubuntu-latest).
+#
+# What happens:
+#   • Promote Images: Avoids recompiling code by pulling the validated :stage
+#     images from GHCR, tagging them as :latest, and pushing them back to GHCR.
+#   • Deploy: Triggers Coolify production deployment, polls state until completion,
+#     and outputs step summaries or issues cancellations.
+#
+# What you need in GitHub Secrets:
+#   • COOLIFY_DEPLOY_URL - Full production deploy URL with uuid parameter.
+#   • COOLIFY_API_TOKEN  - Authorization bearer token for your Coolify API.
+#
+# Environment Configuration:
+#   • Targets the GitHub Environment named "prod" to resolve secrets.
+#
+# =============================================================================
+
+name: Production CI/CD
+
+on:
+  push:
+    branches: [prod]
+
+concurrency:
+  group: prod-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  promote:
+    name: Promote Images (Stage -> Production)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Lowercase Image Name
+        run: echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Extract Version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote Docker Images
+        run: |
+          for app in web admin api space live proxy; do
+            echo "Promoting ${app} image..."
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:${{ env.VERSION }}
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:${{ env.VERSION }}
+          done
+
+  deploy:
+    name: Deploy to Production (Coolify)
+    needs: promote
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Trigger Coolify deploy
+        id: deploy
+        run: |
+          deploy_url="${{ secrets.COOLIFY_DEPLOY_URL }}"
+          if [ -z "$deploy_url" ]; then
+            echo "::error::COOLIFY_DEPLOY_URL is empty."
+            exit 1
+          fi
+          base="${deploy_url%%\?*}"
+          base="${base%/deploy}"
+          uuid="${deploy_url#*uuid=}"
+          uuid="${uuid%%&*}"
+          success=0
+          for i in 1 2 3; do
+            if resp=$(curl -f -sS --max-time 30 -X POST "${base}/deploy" \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"uuid\": \"${uuid}\"}"); then
+              success=1
+              echo "$resp" > deploy_response.json
+              break
+            fi
+            [ $i -lt 3 ] && sleep 10
+          done
+          [ "$success" -eq 1 ] || exit 1
+
+      - name: Wait for deployment
+        id: wait
+        if: success()
+        run: |
+          dep_uuid=$(python3 -c "
+          import json
+          try:
+              d=json.load(open('deploy_response.json'))
+              print(d.get('deployments', [{}])[0].get('deployment_uuid',''))
+          except Exception:
+              pass
+          " 2>/dev/null || true)
+          if [ -z "$dep_uuid" ]; then
+            echo "::error::Could not read deployment UUID."
+            exit 1
+          fi
+          deploy_url="${{ secrets.COOLIFY_DEPLOY_URL }}"
+          base="${deploy_url%%\?*}"
+          base="${base%/deploy}"
+          token="${{ secrets.COOLIFY_API_TOKEN }}"
+          timeout_sec=900
+          interval=20
+          elapsed=0
+          while [ $elapsed -lt $timeout_sec ]; do
+            curl -sS --max-time 30 -X GET "${base}/deployments/${dep_uuid}" \
+              -H "Authorization: Bearer ${token}" -o deployment.json 2>/dev/null || true
+            status=$(python3 -c "
+          import json
+          try:
+              print(json.load(open('deployment.json')).get('status','').lower())
+          except Exception:
+              print('')
+          " 2>/dev/null || true)
+            case "$status" in
+              finished|success) break ;;
+              failed|cancelled|cancelled-by-user) echo "Coolify deployment failed or was cancelled: $status"; exit 1 ;;
+              *) ;;
+            esac
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          if [ $elapsed -ge $timeout_sec ]; then
+            echo "Deployment did not finish within ${timeout_sec}s"
+            exit 1
+          fi
+          echo "elapsed_sec=$elapsed" >> "$GITHUB_OUTPUT"
+
+      - name: Write deployment summary
+        if: success() && steps.wait.outcome == 'success'
+        env:
+          ELAPSED_SEC: ${{ steps.wait.outputs.elapsed_sec }}
+        run: |
+          deploy_url="${{ secrets.COOLIFY_DEPLOY_URL }}"
+          base="${deploy_url%%\?*}"
+          base="${base%/deploy}"
+          dashboard="${base%/api/v1}"
+          [ "$dashboard" = "$base" ] && dashboard="${base%/api}"
+          export DASHBOARD="$dashboard"
+          export GITHUB_SERVER_URL="${{ github.server_url }}"
+          export GITHUB_REPOSITORY="${{ github.repository }}"
+          export GITHUB_SHA="${{ github.sha }}"
+          export GITHUB_REF_NAME="${{ github.ref_name }}"
+          export ELAPSED_SEC="${ELAPSED_SEC:-0}"
+          python3 << 'PY'
+          import json, os
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY', '')
+          dashboard = (os.environ.get('DASHBOARD') or '').rstrip('/')
+          gh_server = os.environ.get('GITHUB_SERVER_URL', '')
+          gh_repo = os.environ.get('GITHUB_REPOSITORY', '')
+          gh_sha = os.environ.get('GITHUB_SHA', '')
+          branch = os.environ.get('GITHUB_REF_NAME', '—')
+          try:
+              elapsed_sec = int(os.environ.get('ELAPSED_SEC', 0))
+          except Exception:
+              elapsed_sec = 0
+          def format_duration(s):
+              if s < 60:
+                  return f'{s}s'
+              m, s = divmod(s, 60)
+              return f'{m}m {s}s' if s else f'{m}m'
+          deploy_duration = format_duration(elapsed_sec) if elapsed_sec else '—'
+          try:
+              with open('deployment.json') as f:
+                  d = json.load(f)
+          except Exception:
+              d = {}
+          app = d.get('application_name', 'N/A')
+          status = (d.get('status') or 'N/A').lower()
+          status_display = '✅ ' + status if status in ('finished', 'success') else status
+          coolify_path = (d.get('deployment_url') or '').strip()
+          if coolify_path and dashboard and not (coolify_path.startswith('http://') or coolify_path.startswith('https://')):
+              full_coolify_url = dashboard + coolify_path if coolify_path.startswith('/') else coolify_path
+          else:
+              full_coolify_url = dashboard if dashboard else ''
+          coolify_url_cell = f'[Link]({full_coolify_url})' if full_coolify_url else '—'
+          commit = d.get('commit') or d.get('commit_message') or gh_sha or '—'
+          commit_sha = (d.get('commit') or gh_sha or '').strip()
+          if commit_sha and gh_server and gh_repo:
+              short_sha = commit_sha[:7] if len(commit_sha) >= 7 else commit_sha
+              commit_cell = f'[{short_sha}]({gh_server}/{gh_repo}/commit/{commit_sha})'
+          else:
+              commit_cell = commit
+          lines = [
+              '## Coolify deployment',
+              '',
+              '| Property | Value |',
+              '|---|-----|',
+              f'| **Application** | {app} |',
+              f'| **Status** | {status_display} |',
+              f'| **Branch** | {branch} |',
+              f'| **Deploy duration** | {deploy_duration} |',
+              f'| **Commit** | {commit_cell} |',
+              f'| **Coolify URL** | {coolify_url_cell} |',
+              '',
+          ]
+          if summary_path:
+              with open(summary_path, 'a') as f:
+                  f.write('\n'.join(lines) + '\n')
+          PY
+
+      - name: Cancel Coolify deployment (if job cancelled)
+        if: cancelled()
+        run: |
+          dep_uuid=$(python3 -c "
+          import json
+          try:
+              d=json.load(open('deploy_response.json'))
+              print(d.get('deployments', [{}])[0].get('deployment_uuid',''))
+          except Exception:
+              pass
+          " 2>/dev/null || true)
+          if [ -z "$dep_uuid" ]; then exit 0; fi
+          deploy_url="${{ secrets.COOLIFY_DEPLOY_URL }}"
+          base="${deploy_url%%\?*}"
+          base="${base%/deploy}"
+          curl -sS --max-time 15 -X POST "${base}/deployments/${dep_uuid}/cancel" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" || true
+
+      - name: Deployment failed summary
+        if: failure()
+        run: |
+          branch="${{ github.ref_name }}"
+          sha="${{ github.sha }}"
+          short_sha="${sha:0:7}"
+          repo="${{ github.repository }}"
+          server="${{ github.server_url }}"
+          commit_link="[${short_sha}](${server}/${repo}/commit/${sha})"
+          {
+            echo '## Deployment failed'
+            echo ''
+            echo 'Deployment failed, was cancelled, or timed out.'
+            echo ''
+            echo '| | |'
+            echo '|---|-----|'
+            echo "| **Branch** | ${branch} |"
+            echo "| **Commit** | ${commit_link} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  sync-stage:
+    name: Sync Prod to Stage
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: stage
+          fetch-depth: 0
+
+      - name: Configure Git Credentials
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge prod branch into stage
+        run: |
+          git fetch origin prod:prod
+          git merge prod -m "orca-chore: sync prod back to stage [skip ci]" --no-ff
+          git push origin stage
+

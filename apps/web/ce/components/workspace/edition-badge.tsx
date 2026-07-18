@@ -4,43 +4,23 @@
  * See the LICENSE file for details.
  */
 
-import { useState } from "react";
 import { observer } from "mobx-react";
-// ui
-import { useTranslation } from "@plane/i18n";
-import { Tooltip } from "@plane/propel/tooltip";
-// hooks
-import { usePlatformOS } from "@/hooks/use-platform-os";
-import packageJson from "package.json";
-// local components
-import { PaidPlanUpgradeModal } from "../license";
-import { Button } from "@plane/propel/button";
+const prospectDevelopmentTeamLogo = "/plane-logos/pdt-logo.svg";
 
 export const WorkspaceEditionBadge = observer(function WorkspaceEditionBadge() {
-  // states
-  const [isPaidPlanPurchaseModalOpen, setIsPaidPlanPurchaseModalOpen] = useState(false);
-  // translation
-  const { t } = useTranslation();
-  // platform
-  const { isMobile } = usePlatformOS();
-
   return (
-    <>
-      <PaidPlanUpgradeModal
-        isOpen={isPaidPlanPurchaseModalOpen}
-        handleClose={() => setIsPaidPlanPurchaseModalOpen(false)}
+    <a
+      href="https://github.com/Prospect-Development-Team"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mx-auto flex items-center gap-2 rounded-full px-3 py-1 transition-colors select-none hover:bg-layer-2"
+    >
+      <img
+        src={prospectDevelopmentTeamLogo}
+        alt="Prospect Development Team"
+        className="h-6 w-6 rounded-sm object-cover"
       />
-      <Tooltip tooltipContent={`Version: v${packageJson.version}`} isMobile={isMobile}>
-        <Button
-          variant="tertiary"
-          size="lg"
-          onClick={() => setIsPaidPlanPurchaseModalOpen(true)}
-          aria-haspopup="dialog"
-          aria-label={t("aria_labels.projects_sidebar.edition_badge")}
-        >
-          Community
-        </Button>
-      </Tooltip>
-    </>
+      <span className="text-12 font-semibold whitespace-nowrap text-[#D4AF37]">Prospect Development Team</span>
+    </a>
   );
 });

@@ -1,13 +1,12 @@
 name: Bug report
-description: Create a bug report to help us improve Plane
+description: Create a bug report to help us improve Plane Orca
 title: "[bug]: "
-labels: [🐛bug, plane]
-assignees: [vihar, pushya22]
+labels: [🐛bug, orca]
 body:
 - type: markdown
   attributes:
     value: |
-      Thank you for taking the time to fill out this bug report.
+      Thank you for taking the time to fill out this bug report for Plane Orca.
 - type: checkboxes
   attributes:
     label: Is there an existing issue for this?
