@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.2-orca.1.0.0](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.3.1-orca.1.0.0...v1.3.2-orca.1.0.0) (2026-07-18)
+
+
+### Chores (Orca)
+
+* add custom release-please token to workflow configuration ([5d0f508](https://github.com/Prospect-Development-Team/plane-orca/commit/5d0f50855827843476d7c810d45d9d09f7338038))
+* remove temporary release-as override ([db751cd](https://github.com/Prospect-Development-Team/plane-orca/commit/db751cd331689c3019499eee689ff530a4792796))
+
 ## [1.3.1-orca.1.0.0](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.3.1-orca.0.0.0...v1.3.1-orca.1.0.0) (2026-07-18)
 
 
