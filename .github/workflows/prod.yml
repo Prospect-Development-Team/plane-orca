@@ -23,8 +23,8 @@
 name: Production CI/CD
 
 on:
-  push:
-    branches: [prod]
+  release:
+    types: [published]
 
 concurrency:
   group: prod-${{ github.ref }}
