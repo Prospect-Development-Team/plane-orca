@@ -24,7 +24,7 @@ name: Production CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [prod]
 
 concurrency:
   group: prod-${{ github.ref }}
@@ -264,3 +264,28 @@ jobs:
             echo "| **Branch** | ${branch} |"
             echo "| **Commit** | ${commit_link} |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  sync-stage:
+    name: Sync Prod to Stage
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: stage
+          fetch-depth: 0
+
+      - name: Configure Git Credentials
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge prod branch into stage
+        run: |
+          git fetch origin prod:prod
+          git merge prod -m "orca-chore: sync prod back to stage [skip ci]" --no-ff
+          git push origin stage
+
