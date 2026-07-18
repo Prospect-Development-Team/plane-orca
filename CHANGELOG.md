@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1-orca.1.0.0](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.3.1-orca.1.0.0...v1.3.1-orca.1.0.0) (2026-07-18)
+
+
+### Chores (Orca)
+
+* run production deploy on push to prod with release filter ([98648f7](https://github.com/Prospect-Development-Team/plane-orca/commit/98648f7f35004d25e0c1c7f7d6b91ad1a07e2e72))
+* run sync-stage in parallel in production workflow ([dc51b60](https://github.com/Prospect-Development-Team/plane-orca/commit/dc51b60afe583eea46534cc6f5a73840be57256b))
+
 ## [1.3.1-orca.1.0.0](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.3.1-orca.0.0.0...v1.3.1-orca.1.0.0) (2026-07-18)
 
 
