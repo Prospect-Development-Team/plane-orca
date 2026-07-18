@@ -267,7 +267,6 @@ jobs:
 
   sync-stage:
     name: Sync Prod to Stage
-    needs: deploy
     runs-on: ubuntu-latest
     permissions:
       contents: write
