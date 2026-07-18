@@ -7,6 +7,7 @@
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
+      "tag-prefix": "v",
       "extra-files": []
     }
   },
