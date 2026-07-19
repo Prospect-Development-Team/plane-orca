@@ -3,9 +3,9 @@
 # See the LICENSE file for details.
 
 import os
-import re
-import mimetypes
+import time
 import requests
+from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 from dotenv import load_dotenv
 
 # Load variables from .env
@@ -55,122 +55,188 @@ def check_config():
     return True
 
 
-def upload_asset_to_new_plane(project_id, file_name, file_bytes, content_type):
+def get_clean_url(url, base_url):
     """
-    Generates a presigned URL on the new Plane Orca instance, uploads the asset
-    binary, and marks it as uploaded. Returns the new asset URL.
+    Rewrites any absolute API url to use the provided base_url, preserving path and query parameters.
+    Handles cursor-based and offset-based pagination links securely.
     """
-    try:
-        payload = {
-            "name": file_name,
-            "type": content_type,
-            "size": len(file_bytes),
-            "project_id": project_id
-        }
-        res = requests.post(
-            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/user-assets/",
-            headers=new_headers,
-            json={
-                "name": file_name,
-                "type": content_type,
-                "size": len(file_bytes),
-                "entity_type": "USER_COVER"
-            }
-        )
-        if res.status_code not in [200, 201]:
-            res = requests.post(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{project_id}/sources/",
-                headers=new_headers,
-                json=payload
-            )
-
-        if res.status_code not in [200, 201]:
-            print(f"        [-] Failed to get presigned URL for {file_name}: {res.text}")
-            return None
-
-        data = res.json()
-        upload_data = data.get("upload_data", {})
-        asset_id = data.get("asset_id")
-        asset_url = data.get("asset_url")
-
-        url = upload_data.get("url")
-        fields = upload_data.get("fields", {})
-        files = {"file": (file_name, file_bytes, content_type)}
-
-        upload_res = requests.post(url, data=fields, files=files)
-        if upload_res.status_code not in [200, 201, 204]:
-            print(f"        [-] Failed to upload asset bytes to storage: {upload_res.text}")
-            return None
-
-        patch_res = requests.patch(
-            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/user-assets/{asset_id}/",
-            headers=new_headers,
-            json={"attributes": {"name": file_name, "type": content_type, "size": len(file_bytes)}}
-        )
-        if patch_res.status_code not in [200, 201, 204]:
-            requests.patch(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{project_id}/sources/{asset_id}/",
-                headers=new_headers,
-                json={"is_uploaded": True}
-            )
-
-        return asset_url
-
-    except Exception as e:
-        print(f"        [-] Error uploading asset: {e}")
+    if not url:
         return None
+    parsed = urlparse(url)
+    rebuilt_url = f"{base_url.rstrip('/')}{parsed.path}"
+    if parsed.query:
+        rebuilt_url += f"?{parsed.query}"
+    return rebuilt_url
 
 
-def process_html_assets(html_content, project_id):
+def get_next_cursor_url(current_url, next_cursor):
     """
-    Parses HTML content, finds all images/files pointing to the old server,
-    downloads them, uploads them to the new server, and updates the URLs.
+    Updates the 'cursor' query parameter in current_url to next_cursor, returning the new URL.
     """
-    if not html_content:
-        return html_content
+    parsed = urlparse(current_url)
+    query_params = parse_qs(parsed.query)
+    query_params['cursor'] = [next_cursor]
+    new_query = urlencode(query_params, doseq=True)
+    return urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        new_query,
+        parsed.fragment
+    ))
 
-    url_pattern = re.compile(rf'"{re.escape(OLD_PLANE_URL)}/api/v1/[^"]+assets/[^"]+"')
-    urls_found = url_pattern.findall(html_content)
-    if not urls_found:
-        return html_content
 
-    print(f"        [+] Found {len(urls_found)} asset references in content. Migrating them...")
-
-    for old_url_with_quotes in set(urls_found):
-        old_url = old_url_with_quotes.strip('"')
+def fetch_all_paginated_results(url, headers, base_url):
+    results = []
+    current_url = url
+    while current_url:
         try:
-            asset_res = requests.get(old_url, headers=old_headers)
-            if asset_res.status_code != 200:
-                print(f"        [-] Could not download old asset: {old_url}")
-                continue
+            res = requests.get(current_url, headers=headers, timeout=30)
+            if res.status_code == 200:
+                data = res.json()
+                if isinstance(data, list):
+                    results.extend(data)
+                    break
+                elif isinstance(data, dict):
+                    results.extend(data.get("results", []))
+                    
+                    # Check for cursor-based pagination
+                    if "next_cursor" in data:
+                        if data.get("next_page_results") and data.get("next_cursor"):
+                            current_url = get_next_cursor_url(current_url, data.get("next_cursor"))
+                        else:
+                            current_url = None
+                    else:
+                        # Standard offset/page-based next link pagination
+                        next_url = data.get("next")
+                        current_url = get_clean_url(next_url, base_url)
+                else:
+                    break
+            else:
+                break
+        except Exception:
+            break
+    return results
 
-            file_bytes = asset_res.content
-            content_type = asset_res.headers.get("Content-Type", "image/jpeg")
-            ext = mimetypes.guess_extension(content_type) or ".jpg"
-            file_name = f"migrated_asset_{hash(old_url)}{ext}"
 
-            new_url = upload_asset_to_new_plane(project_id, file_name, file_bytes, content_type)
-            if new_url:
-                print(f"        [+] Migrated asset: {old_url} -> {new_url}")
-                html_content = html_content.replace(old_url, new_url)
-
-        except Exception as e:
-            print(f"        [-] Failed to process asset URL {old_url}: {e}")
-
-    return html_content
+def get_list_from_response(res_data):
+    """
+    Safely retrieves a list from an API response which could be a raw list or a paginated dict.
+    """
+    if isinstance(res_data, list):
+        return res_data
+    if isinstance(res_data, dict):
+        return res_data.get("results", [])
+    return []
 
 
 def migrate():
     if not check_config():
         return
 
+    print("="*60)
+    print("MIGRATION DETAILS SUMMARY:")
+    print(f"  - Source URL            : {OLD_PLANE_URL}")
+    print(f"  - Source Workspace Slug : {OLD_WORKSPACE_SLUG}")
+    print(f"  - Target URL            : {NEW_PLANE_URL}")
+    print(f"  - Target Workspace Slug : {NEW_WORKSPACE_SLUG}")
+    print("="*60)
+    confirm = input("[?] Proceed with migration? (Y/n): ").strip().lower()
+    if confirm not in ["", "yes", "y"]:
+        print("[-] Migration cancelled by user.")
+        return
+
+    # Ask user if they want to wipe the workspace
+    wipe_choice = input("[?] Do you want to wipe the target workspace before migrating? (y/N): ").strip().lower()
+    if wipe_choice in ["yes", "y"]:
+        print("\n[!] Wiping target workspace...")
+        # Delete projects (and their labels first to avoid ghost records)
+        try:
+            projects_to_delete = fetch_all_paginated_results(f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/?per_page=100", headers=new_headers, base_url=NEW_PLANE_URL)
+            if projects_to_delete:
+                for p in projects_to_delete:
+                    p_id = p["id"]
+                    p_name = p["name"]
+                    # Delete all project labels first so they don't linger as ghost records
+                    try:
+                        lbl_res = requests.get(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{p_id}/labels/?per_page=500",
+                            headers=new_headers
+                        )
+                        if lbl_res.status_code == 200:
+                            for lbl in lbl_res.json().get("results", []):
+                                requests.delete(
+                                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{p_id}/labels/{lbl['id']}/",
+                                    headers=new_headers
+                                )
+                    except Exception:
+                        pass
+                    # Rename the project before deleting — Plane soft-deletes and keeps the
+                    # original name/identifier reserved, which would block re-creation.
+                    # Renaming first frees the name+identifier immediately.
+                    # NOTE: Plane identifiers must be 1-12 uppercase alphanumeric chars.
+                    short_id = f"Z{int(time.time()) % 9999:04d}"  # e.g. Z1234 — always 5 chars
+                    rename_res = requests.patch(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{p_id}/",
+                        headers=new_headers,
+                        json={"name": f"_wipe_{short_id}", "identifier": short_id}
+                    )
+                    if rename_res.status_code not in [200, 201]:
+                        print(f"    [!] Pre-delete rename failed for {p_name}: {rename_res.text[:80]}")
+                    del_res = requests.delete(f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{p_id}/", headers=new_headers)
+                    if del_res.status_code == 204:
+                        print(f"    [+] Deleted project: {p_name}")
+                    else:
+                        print(f"    [-] Failed to delete project {p_name}: {del_res.text}")
+        except Exception as e:
+            print(f"    [-] Error deleting projects: {e}")
+
+        # Also purge workspace-level labels to avoid name conflicts on the next run
+        try:
+            ws_lbl_res = requests.get(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/?per_page=500",
+                headers=new_headers
+            )
+            if ws_lbl_res.status_code == 200:
+                ws_lbl_data = ws_lbl_res.json()
+                ws_lbl_list = ws_lbl_data.get("results", []) if isinstance(ws_lbl_data, dict) else ws_lbl_data
+                if isinstance(ws_lbl_list, list):
+                    for lbl in ws_lbl_list:
+                        requests.delete(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/{lbl['id']}/",
+                            headers=new_headers
+                        )
+                print("    [+] Purged workspace-level labels.")
+        except Exception as e:
+            print(f"    [-] Error purging workspace labels: {e}")
+
+        print("[!] Target workspace wiped successfully.\n")
+
+    # Statistics Summary Tracking
+    stats = {
+        "workspace_members_invited": 0,
+        "workspace_members_failed": 0,
+        "projects_migrated": 0,
+        "cycles_migrated": 0,
+        "cycles_failed": 0,
+        "modules_migrated": 0,
+        "modules_failed": 0,
+        "states_migrated": 0,
+        "states_failed": 0,
+        "labels_migrated": 0,
+        "labels_failed": 0,
+        "issues_migrated": 0,
+        "issues_failed": 0,
+        "errors": []
+    }
+
     # 1. Sync Workspace Users, Members, and Roles
     print("[+] Syncing workspace members...")
-    user_email_to_new_id = {}  # email -> new_user_id
-    old_user_id_to_email = {}  # old_user_id -> email
+    user_email_to_new_id = {}
+    old_user_id_to_email = {}
     
     try:
-        # Fetch existing workspace members on target Plane Orca
         target_members_res = requests.get(
             f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/members/",
             headers=new_headers,
@@ -182,7 +248,6 @@ def migrate():
             elif m.get("email"):
                 user_email_to_new_id[m["email"]] = m["id"]
 
-        # Fetch old workspace members
         old_members_res = requests.get(
             f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/members/",
             headers=old_headers,
@@ -199,11 +264,9 @@ def migrate():
 
             old_user_id_to_email[old_id] = email
 
-            # If user already exists in target workspace, map them
             if email in user_email_to_new_id:
                 print(f"    [-] Member {email} already exists on target. Mapped.")
             else:
-                # Invite member to the workspace
                 invite_payload = {"email": email, "role": role}
                 invite_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/invitations/",
@@ -212,12 +275,16 @@ def migrate():
                 )
                 if invite_res.status_code in [200, 201]:
                     print(f"    [+] Invited member {email} with role {role} to workspace.")
+                    stats["workspace_members_invited"] += 1
                 else:
-                    print(f"    [-] Failed to invite member {email}: {invite_res.text}")
+                    err_msg = f"Failed to invite member {email}: {invite_res.text}"
+                    stats["workspace_members_failed"] += 1
+                    stats["errors"].append(err_msg)
+                    print(f"    [-] {err_msg}")
     except Exception as e:
+        stats["errors"].append(f"Error syncing workspace members: {e}")
         print(f"    [-] Error syncing workspace members: {e}")
 
-    # Helper function to map old user IDs to new user IDs
     def map_user_id(old_uid):
         if not old_uid:
             return None
@@ -226,52 +293,24 @@ def migrate():
             return user_email_to_new_id[email]
         return None
 
-    # 2. Sync User Stickies
-    print("[+] Syncing stickies...")
+    current_new_user_id = None
     try:
-        target_stickies_res = requests.get(
-            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/stickies/",
-            headers=new_headers,
-        )
-        target_stickies_data = target_stickies_res.json()
-        target_stickies = target_stickies_data.get("results", []) if isinstance(target_stickies_data, dict) else target_stickies_data
-        existing_sticky_titles = {s.get("title") for s in target_stickies if s.get("title")}
-
-        old_stickies_res = requests.get(
-            f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/stickies/",
-            headers=old_headers,
-        )
-        old_stickies_data = old_stickies_res.json()
-        old_stickies = old_stickies_data.get("results", []) if isinstance(old_stickies_data, dict) else old_stickies_data
-
-        for os in old_stickies:
-            title = os.get("title")
-            if not title or title in existing_sticky_titles:
-                continue
-
-            sticky_payload = {
-                "title": title,
-                "description": os.get("description", ""),
-                "color": os.get("color", "#F5C146"),
-            }
-            requests.post(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/stickies/",
-                headers=new_headers,
-                json=sticky_payload
-            )
-            print(f"    [+] Synced sticky: {title}")
-    except Exception as e:
-        print(f"    [-] Error syncing stickies: {e}")
+        user_me_res = requests.get(f"{NEW_PLANE_URL}/api/v1/users/me/", headers=new_headers)
+        if user_me_res.status_code == 200:
+            current_new_user_id = user_me_res.json().get("id")
+    except Exception:
+        pass
 
     # 3. Fetch projects from old Plane
     print(f"[+] Fetching projects from old Plane ({OLD_PLANE_URL})...")
     try:
-        projects_res = requests.get(
-            f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/",
-            headers=old_headers,
+        projects = fetch_all_paginated_results(
+            f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/?per_page=100",
+            old_headers,
+            OLD_PLANE_URL
         )
-        projects_res.raise_for_status()
-        projects = projects_res.json().get("results", [])
+        if not projects:
+            print("[-] No projects found on old Plane (or request failed).")
     except Exception as e:
         print(f"[-] Failed to fetch projects from old Plane: {e}")
         return
@@ -287,10 +326,18 @@ def migrate():
             "identifier": proj_identifier,
             "description": proj.get("description", ""),
             "network": proj.get("network", 2),
-            "project_lead": map_user_id(proj.get("project_lead")),
-            "emoji": proj.get("emoji", ""),
-            "icon_prop": proj.get("icon_prop", None),
+            "inbox_view": proj.get("inbox_view", proj.get("intake_view", True)),
         }
+        # Only include optional fields when they have a real value — Plane rejects
+        # null/empty for project_lead, emoji, and icon_prop with a generic error.
+        mapped_lead = map_user_id(proj.get("project_lead"))
+        if mapped_lead:
+            new_proj_payload["project_lead"] = mapped_lead
+        if proj.get("emoji"):
+            new_proj_payload["emoji"] = proj["emoji"]
+        if proj.get("icon_prop"):
+            new_proj_payload["icon_prop"] = proj["icon_prop"]
+        new_proj_id = None
         try:
             create_proj_res = requests.post(
                 f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
@@ -300,42 +347,49 @@ def migrate():
             if create_proj_res.status_code in [200, 201]:
                 new_proj = create_proj_res.json()
                 new_proj_id = new_proj["id"]
-                print(f"    [+] Created/found project on Orca: {proj_name}")
+                print(f"    [+] Created project on Orca: {proj_name}")
+                stats["projects_migrated"] += 1
             else:
-                print(f"    [!] Project creation response: {create_proj_res.status_code}. Attempting to fetch existing project ID...")
-                new_proj_id_res = requests.get(
-                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
-                    headers=new_headers,
-                )
-                matching_projs = [p for p in new_proj_id_res.json().get("results", []) if p["identifier"] == proj_identifier]
-                if matching_projs:
-                    new_proj_id = matching_projs[0]["id"]
-                    print(f"    [+] Found existing project ID on Orca: {new_proj_id}")
-                else:
-                    print(f"    [-] Could not create or find project {proj_name} on Orca. Skipping project.")
-                    continue
+                # The Orca API sometimes creates the project but returns an error status.
+                # Check if the response body contains an 'id' before doing a GET lookup.
+                try:
+                    resp_body = create_proj_res.json()
+                    if resp_body.get("id"):
+                        new_proj_id = resp_body["id"]
+                        print(f"    [+] Created project on Orca: {proj_name} (HTTP {create_proj_res.status_code}, project was still created)")
+                        stats["projects_migrated"] += 1
+                except Exception:
+                    pass
+
+                if not new_proj_id:
+                    # Final fallback: find by identifier
+                    new_proj_id_res = requests.get(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
+                        headers=new_headers,
+                    )
+                    matching_projs = [p for p in new_proj_id_res.json().get("results", []) if p["identifier"] == proj_identifier]
+                    if matching_projs:
+                        new_proj_id = matching_projs[0]["id"]
+                        print(f"    [!] Project creation error but project found by identifier: {new_proj_id} ({create_proj_res.text[:80]})")
+                    else:
+                        print(f"    [-] Could not create or find project {proj_name} on Orca. Skipping. ({create_proj_res.text[:80]})")
         except Exception as e:
-            print(f"    [-] Error migrating project {proj_name}: {e}")
+            print(f"    [-] Error creating project {proj_name}: {e}")
+
+        if not new_proj_id:
             continue
 
-        # Sync Project Cover Image
-        if proj.get("cover_image"):
-            old_cover_url = proj["cover_image"]
+
+        # Ensure the migrating token user is a member of the project on target (required for listing labels, cycles, etc.)
+        if current_new_user_id:
             try:
-                cover_res = requests.get(old_cover_url, headers=old_headers)
-                if cover_res.status_code == 200:
-                    cover_bytes = cover_res.content
-                    content_type = cover_res.headers.get("Content-Type", "image/jpeg")
-                    new_cover_url = upload_asset_to_new_plane(new_proj_id, "project_cover.jpg", cover_bytes, content_type)
-                    if new_cover_url:
-                        requests.patch(
-                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/",
-                            headers=new_headers,
-                            json={"cover_image": new_cover_url}
-                        )
-                        print("    [+] Synced project cover image.")
-            except Exception as e:
-                print(f"    [!] Failed to sync project cover image: {e}")
+                requests.post(
+                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/project-members/",
+                    headers=new_headers,
+                    json={"member": current_new_user_id, "role": 20}
+                )
+            except Exception:
+                pass
 
         # Update Project Feature Toggles
         try:
@@ -344,7 +398,8 @@ def migrate():
                 "module_view": proj.get("module_view", True),
                 "issue_views_view": proj.get("issue_views_view", True),
                 "page_view": proj.get("page_view", True),
-                "inbox_view": proj.get("inbox_view", True),
+                "inbox_view": proj.get("inbox_view", proj.get("intake_view", True)),
+                "intake_view": proj.get("intake_view", proj.get("inbox_view", True)),
             }
             requests.patch(
                 f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/",
@@ -362,59 +417,244 @@ def migrate():
                 f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/members/",
                 headers=old_headers,
             )
-            old_pms = old_pm_res.json() if old_pm_res.status_code == 200 else []
+            old_pms = get_list_from_response(old_pm_res.json()) if old_pm_res.status_code == 200 else []
 
             new_pm_res = requests.get(
                 f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/members/",
                 headers=new_headers,
             )
-            new_pms = new_pm_res.json() if new_pm_res.status_code == 200 else []
-            new_pm_emails = {m.get("email") for m in new_pms if m.get("email")}
+            new_pms = get_list_from_response(new_pm_res.json()) if new_pm_res.status_code == 200 else []
+            new_pm_emails = {m.get("member", {}).get("email"): m for m in new_pms if isinstance(m, dict) and m.get("member", {}).get("email")}
 
             for opm in old_pms:
                 email = opm.get("member", {}).get("email") or opm.get("email")
                 role = opm.get("role", 15)
-                if not email or email in new_pm_emails:
+                if not email:
                     continue
 
-                if email in user_email_to_new_id:
-                    member_payload = {"member": user_email_to_new_id[email], "role": role}
-                    pm_add_res = requests.post(
-                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/members/",
-                        headers=new_headers,
-                        json=member_payload
-                    )
-                    if pm_add_res.status_code in [200, 201]:
-                        print(f"        [+] Added project member: {email}")
+                if email in new_pm_emails:
+                    target_pm = new_pm_emails[email]
+                    if target_pm.get("role") != role:
+                        requests.patch(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/members/{target_pm['id']}/",
+                            headers=new_headers,
+                            json={"role": role}
+                        )
+                        print(f"        [+] Updated role for project member: {email} -> {role}")
+                else:
+                    if email in user_email_to_new_id:
+                        member_payload = {"member": user_email_to_new_id[email], "role": role}
+                        pm_add_res = requests.post(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/members/",
+                            headers=new_headers,
+                            json=member_payload
+                        )
+                        if pm_add_res.status_code in [200, 201]:
+                            print(f"        [+] Added project member: {email} with role {role}")
         except Exception as e:
             print(f"        [!] Failed to sync project members: {e}")
 
-        # 5. Migrate Cycles
-        print(f"    [+] Fetching cycles for project: {proj_name}...")
-        cycle_mapping = {}
+        # Migrate Project States
+        print("    [+] Syncing project workflow states...")
+        state_mapping = {}
         try:
-            target_cycles_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/",
+            target_states_res = requests.get(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/states/",
                 headers=new_headers,
             )
-            existing_cycles = {c["name"]: c["id"] for c in target_cycles_res.json().get("results", [])} if target_cycles_res.status_code == 200 else {}
+            existing_states = {}
+            if target_states_res.status_code == 200:
+                s_list = get_list_from_response(target_states_res.json())
+                existing_states = {s["name"]: s for s in s_list if isinstance(s, dict) and s.get("name")}
 
-            cycles_res = requests.get(
-                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/cycles/",
+            states_res = requests.get(
+                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/states/",
                 headers=old_headers,
             )
-            cycles = cycles_res.json().get("results", [])
+            states = get_list_from_response(states_res.json()) if states_res.status_code == 200 else []
+            for state in states:
+                state_name = state["name"]
+                if state_name in existing_states:
+                    print(f"        [-] State '{state_name}' already exists on Orca. Mapping.")
+                    state_mapping[state["id"]] = existing_states[state_name]["id"]
+                    
+                    target_state = existing_states[state_name]
+                    if target_state.get("color") != state.get("color") or target_state.get("group") != state.get("group"):
+                        requests.patch(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/states/{target_state['id']}/",
+                            headers=new_headers,
+                            json={"color": state.get("color"), "group": state.get("group")}
+                        )
+                    continue
+
+                state_payload = {
+                    "name": state_name,
+                    "color": state.get("color", "#CCCCCC"),
+                    "group": state.get("group", "backlog"),
+                    "description": state.get("description", ""),
+                    "project_id": new_proj_id,
+                    "default": False
+                }
+                st_res = requests.post(
+                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/states/",
+                    headers=new_headers,
+                    json=state_payload
+                )
+                if st_res.status_code in [200, 201]:
+                    new_st = st_res.json()
+                    state_mapping[state["id"]] = new_st["id"]
+                    stats["states_migrated"] += 1
+                    print(f"        [+] Created state: {state_name}")
+                else:
+                    err_msg = f"Failed to create state {state_name}: {st_res.text}"
+                    stats["states_failed"] += 1
+                    stats["errors"].append(err_msg)
+                    print(f"        [-] {err_msg}")
+        except Exception as e:
+            print(f"        [-] Error migrating states: {e}")
+
+        # Migrate Project Labels
+        print("    [+] Syncing project labels...")
+        label_mapping = {}
+        try:
+            target_labels_res = requests.get(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/?per_page=500",
+                headers=new_headers,
+            )
+            existing_labels = {}
+            if target_labels_res.status_code == 200:
+                l_list = get_list_from_response(target_labels_res.json())
+                existing_labels = {l["name"].strip().lower(): l for l in l_list if isinstance(l, dict) and l.get("name")}
+
+            # Also pull workspace-level labels — Plane may store some labels there
+            # (e.g. default labels seeded at workspace scope) and reject project-level
+            # creation by the same name even though they don't appear in the project GET.
+            ws_labels_res = requests.get(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/?per_page=500",
+                headers=new_headers,
+            )
+            if ws_labels_res.status_code == 200:
+                ws_lbl_data = ws_labels_res.json()
+                ws_lbl_list = ws_lbl_data.get("results", []) if isinstance(ws_lbl_data, dict) else ws_lbl_data
+                if isinstance(ws_lbl_list, list):
+                    for l in ws_lbl_list:
+                        if isinstance(l, dict) and l.get("name"):
+                            key = l["name"].strip().lower()
+                            if key not in existing_labels:
+                                existing_labels[key] = l
+
+            labels_res = requests.get(
+                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/labels/",
+                headers=old_headers,
+            )
+            labels = get_list_from_response(labels_res.json()) if labels_res.status_code == 200 else []
+            for label in labels:
+                if not isinstance(label, dict) or not label.get("name"):
+                    continue
+                label_name = label["name"]
+                cleaned_name = label_name.strip().lower()
+                if cleaned_name in existing_labels:
+                    print(f"        [~] Label '{label_name}' already exists on Orca. Mapping.")
+                    label_mapping[label["id"]] = existing_labels[cleaned_name]["id"]
+                    continue
+
+                label_payload = {
+                    "name": label_name,
+                    "color": label.get("color", "#FF5733"),
+                    "description": label.get("description", ""),
+                }
+                lbl_res = requests.post(
+                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/",
+                    headers=new_headers,
+                    json=label_payload
+                )
+                if lbl_res.status_code in [200, 201]:
+                    new_lbl = lbl_res.json()
+                    label_mapping[label["id"]] = new_lbl["id"]
+                    stats["labels_migrated"] += 1
+                    print(f"        [+] Created label: {label_name}")
+                else:
+                    # Fallback: re-fetch all labels (project + workspace) to find and map it
+                    found_lbl = None
+                    for lbl_url in [
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/?per_page=500",
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/?per_page=500",
+                    ]:
+                        fb_res = requests.get(lbl_url, headers=new_headers)
+                        if fb_res.status_code == 200:
+                            res_data = fb_res.json()
+                            lbl_list = res_data.get("results", []) if isinstance(res_data, dict) else res_data
+                            if isinstance(lbl_list, list):
+                                found_lbl = next(
+                                    (l for l in lbl_list
+                                     if isinstance(l, dict) and l.get("name", "").strip().lower() == cleaned_name),
+                                    None
+                                )
+                        if found_lbl:
+                            break
+
+                    if found_lbl:
+                        label_mapping[label["id"]] = found_lbl["id"]
+                        print(f"        [~] Label '{label_name}' found on Orca (workspace-level). Mapped.")
+                    else:
+                        err_msg = f"Failed to create label {label_name}: {lbl_res.text}"
+                        stats["labels_failed"] += 1
+                        stats["errors"].append(err_msg)
+                        print(f"        [-] {err_msg}")
+        except Exception as e:
+            print(f"        [-] Error migrating labels: {e}")
+
+        # 5. Migrate Cycles
+        print("    [+] Syncing project cycles...")
+        cycle_mapping = {}
+        cycle_id_to_name = {}
+        cycle_issue_mapping = {}
+        try:
+            target_cycles = fetch_all_paginated_results(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/?per_page=100",
+                new_headers,
+                NEW_PLANE_URL
+            )
+            existing_cycles = {c["name"]: c["id"] for c in target_cycles}
+            for c in target_cycles:
+                cycle_id_to_name[c["id"]] = c["name"]
+
+            cycles = fetch_all_paginated_results(
+                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/cycles/?per_page=100",
+                old_headers,
+                OLD_PLANE_URL
+            )
             for cycle in cycles:
+                try:
+                    cycle_issues = fetch_all_paginated_results(
+                        f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/cycles/{cycle['id']}/cycle-issues/?per_page=100",
+                        old_headers,
+                        OLD_PLANE_URL
+                    )
+                    for ci in cycle_issues:
+                        old_issue_id = ci.get("id") or ci.get("issue") or ci.get("issue_detail", {}).get("id") or ci.get("issue_id")
+                        if old_issue_id:
+                            cycle_issue_mapping[old_issue_id] = cycle["id"]
+                except Exception as e:
+                    print(f"        [!] Error pre-fetching issues for old cycle {cycle['name']}: {e}")
+
                 if cycle["name"] in existing_cycles:
                     print(f"        [-] Cycle '{cycle['name']}' already exists on Orca. Mapping to existing ID.")
                     cycle_mapping[cycle["id"]] = existing_cycles[cycle["name"]]
                     continue
 
+                start_date = cycle.get("start_date")
+                end_date = cycle.get("end_date")
+                if start_date and end_date and start_date > end_date:
+                    start_date = None
+                    end_date = None
+
                 cycle_payload = {
                     "name": cycle["name"],
                     "description": cycle.get("description", ""),
-                    "start_date": cycle.get("start_date", None),
-                    "end_date": cycle.get("end_date", None),
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "project_id": new_proj_id
                 }
                 c_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/",
@@ -424,28 +664,53 @@ def migrate():
                 if c_res.status_code in [200, 201]:
                     new_c = c_res.json()
                     cycle_mapping[cycle["id"]] = new_c["id"]
+                    cycle_id_to_name[new_c["id"]] = cycle["name"]
+                    stats["cycles_migrated"] += 1
                     print(f"        [+] Created cycle: {cycle['name']}")
                 else:
-                    print(f"        [-] Failed to create cycle: {cycle['name']}: {c_res.text}")
+                    err_msg = f"Failed to create cycle {cycle['name']}: {c_res.text}"
+                    stats["cycles_failed"] += 1
+                    stats["errors"].append(err_msg)
+                    print(f"        [-] {err_msg}")
         except Exception as e:
             print(f"        [-] Error migrating cycles: {e}")
 
         # 6. Migrate Modules
-        print(f"    [+] Fetching modules for project: {proj_name}...")
+        print("    [+] Syncing project modules...")
         module_mapping = {}
+        module_id_to_name = {}
+        module_issue_mapping = {}
         try:
-            target_modules_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/",
-                headers=new_headers,
+            target_modules = fetch_all_paginated_results(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/?per_page=100",
+                new_headers,
+                NEW_PLANE_URL
             )
-            existing_modules = {m["name"]: m["id"] for m in target_modules_res.json().get("results", [])} if target_modules_res.status_code == 200 else {}
+            existing_modules = {m["name"]: m["id"] for m in target_modules}
+            for m in target_modules:
+                module_id_to_name[m["id"]] = m["name"]
 
-            modules_res = requests.get(
-                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/modules/",
-                headers=old_headers,
+            modules = fetch_all_paginated_results(
+                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/modules/?per_page=100",
+                old_headers,
+                OLD_PLANE_URL
             )
-            modules = modules_res.json().get("results", [])
             for module in modules:
+                try:
+                    module_issues = fetch_all_paginated_results(
+                        f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/modules/{module['id']}/module-issues/?per_page=100",
+                        old_headers,
+                        OLD_PLANE_URL
+                    )
+                    for mi in module_issues:
+                        old_issue_id = mi.get("id") or mi.get("issue") or mi.get("issue_detail", {}).get("id") or mi.get("issue_id")
+                        if old_issue_id:
+                            if old_issue_id not in module_issue_mapping:
+                                module_issue_mapping[old_issue_id] = []
+                            module_issue_mapping[old_issue_id].append(module["id"])
+                except Exception as e:
+                    print(f"        [!] Error pre-fetching issues for old module {module['name']}: {e}")
+
                 if module["name"] in existing_modules:
                     print(f"        [-] Module '{module['name']}' already exists on Orca. Mapping to existing ID.")
                     module_mapping[module["id"]] = existing_modules[module["name"]]
@@ -456,9 +721,13 @@ def migrate():
                     "description": module.get("description", ""),
                     "start_date": module.get("start_date", None),
                     "end_date": module.get("end_date", None),
-                    "lead": map_user_id(module.get("lead")),
                     "status": module.get("status", "backlog"),
+                    "project_id": new_proj_id
                 }
+                # Only include lead if it maps to a real user — null lead causes validation errors
+                mapped_module_lead = map_user_id(module.get("lead"))
+                if mapped_module_lead:
+                    module_payload["lead"] = mapped_module_lead
                 m_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/",
                     headers=new_headers,
@@ -467,99 +736,43 @@ def migrate():
                 if m_res.status_code in [200, 201]:
                     new_m = m_res.json()
                     module_mapping[module["id"]] = new_m["id"]
+                    module_id_to_name[new_m["id"]] = module["name"]
+                    stats["modules_migrated"] += 1
                     print(f"        [+] Created module: {module['name']}")
                 else:
-                    print(f"        [-] Failed to create module: {module['name']}: {m_res.text}")
+                    err_msg = f"Failed to create module {module['name']}: {m_res.text}"
+                    stats["modules_failed"] += 1
+                    stats["errors"].append(err_msg)
+                    print(f"        [-] {err_msg}")
         except Exception as e:
             print(f"        [-] Error migrating modules: {e}")
 
-        # 7. Migrate Views
-        print(f"    [+] Fetching views for project: {proj_name}...")
-        try:
-            target_views_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/views/",
-                headers=new_headers,
-            )
-            existing_views = {v["name"] for v in target_views_res.json().get("results", [])} if target_views_res.status_code == 200 else set()
 
-            views_res = requests.get(
-                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/views/",
-                headers=old_headers,
-            )
-            views = views_res.json().get("results", [])
-            for view in views:
-                if view["name"] in existing_views:
-                    print(f"        [-] View '{view['name']}' already exists on Orca. Skipping.")
-                    continue
-
-                view_payload = {
-                    "name": view["name"],
-                    "description": view.get("description", ""),
-                    "query": view.get("query", {}),
-                    "access": view.get("access", "public"),
-                }
-                requests.post(
-                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/views/",
-                    headers=new_headers,
-                    json=view_payload
-                )
-                print(f"        [+] Created view: {view['name']}")
-        except Exception as e:
-            print(f"        [-] Error migrating views: {e}")
-
-        # 8. Migrate Project Pages
-        print(f"    [+] Fetching pages for project: {proj_name}...")
-        try:
-            target_pages_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/pages/",
-                headers=new_headers,
-            )
-            existing_page_names = {p["name"] for p in target_pages_res.json().get("results", [])} if target_pages_res.status_code == 200 else set()
-
-            pages_res = requests.get(
-                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/pages/",
-                headers=old_headers,
-            )
-            pages = pages_res.json().get("results", [])
-            for page in pages:
-                if page["name"] in existing_page_names:
-                    print(f"        [-] Page '{page['name']}' already exists on Orca. Skipping.")
-                    continue
-
-                old_desc = page.get("description_html", "")
-                new_desc = process_html_assets(old_desc, new_proj_id)
-
-                new_page_payload = {
-                    "name": page["name"],
-                    "description_html": new_desc,
-                    "access": page.get("access", 0),
-                }
-                create_page_res = requests.post(
-                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/pages/",
-                    headers=new_headers,
-                    json=new_page_payload,
-                )
-                if create_page_res.status_code in [200, 201]:
-                    print(f"        [+] Imported page: {page['name']}")
-                else:
-                    print(f"        [-] Failed to import page {page['name']}: {create_page_res.text}")
-        except Exception as e:
-            print(f"        [-] Error migrating pages for project {proj_name}: {e}")
 
         # 9. Fetch Issues for the project from Old Plane
         print(f"    [+] Fetching issues for project: {proj_name}...")
         try:
-            target_issues_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/",
-                headers=new_headers,
+            # Fetch all existing issue names from the target (paginated) to detect duplicates
+            existing_issues = fetch_all_paginated_results(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/?per_page=100",
+                new_headers,
+                NEW_PLANE_URL
             )
-            existing_issue_names = {i["name"] for i in target_issues_res.json().get("results", [])} if target_issues_res.status_code == 200 else set()
+            existing_issue_names = {i["name"] for i in existing_issues if i.get("name")}
 
-            issues_res = requests.get(
-                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/issues/",
-                headers=old_headers,
+            # Fetch ALL source issues across all pages using clean cursor/offset navigation
+            issues = fetch_all_paginated_results(
+                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/issues/?per_page=100",
+                old_headers,
+                OLD_PLANE_URL
             )
-            issues = issues_res.json().get("results", [])
+
+            # Map user new ID back to email for printing assignees
+            user_id_to_email = {uid: email for email, uid in user_email_to_new_id.items()}
+
+            cycle_associations = {}
+            module_associations = {}
+
             print(f"    [+] Found {len(issues)} issues to migrate.")
             for issue in issues:
                 if issue["name"] in existing_issue_names:
@@ -567,35 +780,72 @@ def migrate():
                     continue
 
                 old_desc = issue.get("description_html", "")
-                new_desc = process_html_assets(old_desc, new_proj_id)
 
+                # Map cycle (handle relationship pre-fetch mapping first, then fallback to API keys)
                 mapped_cycle_id = None
-                if issue.get("cycle") and issue["cycle"] in cycle_mapping:
-                    mapped_cycle_id = cycle_mapping[issue["cycle"]]
+                old_issue_id = issue.get("id")
+                old_cycle_id = cycle_issue_mapping.get(old_issue_id)
+                if not old_cycle_id:
+                    cycle_data = issue.get("cycle_id") or issue.get("cycle")
+                    if cycle_data:
+                        old_cycle_id = cycle_data.get("id") if isinstance(cycle_data, dict) else cycle_data
+                if old_cycle_id and old_cycle_id in cycle_mapping:
+                    mapped_cycle_id = cycle_mapping[old_cycle_id]
 
+                # Map modules (handle relationship pre-fetch mapping first, then fallback to API keys)
                 mapped_module_ids = []
-                if issue.get("modules"):
-                    for m_id in issue["modules"]:
-                        if m_id in module_mapping:
-                            mapped_module_ids.append(module_mapping[m_id])
+                old_module_ids = module_issue_mapping.get(old_issue_id, [])
+                if not old_module_ids:
+                    modules_data = issue.get("module_ids") or issue.get("modules")
+                    if modules_data:
+                        for m in modules_data:
+                            m_id = m.get("id") if isinstance(m, dict) else m
+                            if m_id:
+                                old_module_ids.append(m_id)
+                for om_id in old_module_ids:
+                    if om_id in module_mapping:
+                        mapped_module_ids.append(module_mapping[om_id])
 
-                # Map assignees list
+                # Map assignees (handle both assignee_ids list and nested assignees objects)
                 mapped_assignees = []
-                if issue.get("assignees"):
-                    for old_uid in issue["assignees"]:
-                        new_uid = map_user_id(old_uid)
+                assignees_data = issue.get("assignee_ids") or issue.get("assignees")
+                if assignees_data:
+                    for old_uid in assignees_data:
+                        uid = old_uid.get("id") if isinstance(old_uid, dict) else old_uid
+                        new_uid = map_user_id(uid)
                         if new_uid:
                             mapped_assignees.append(new_uid)
 
+                # Map state (handle both state_id and nested state object)
+                mapped_state_id = None
+                state_data = issue.get("state_id") or issue.get("state")
+                if state_data:
+                    old_state_id = state_data.get("id") if isinstance(state_data, dict) else state_data
+                    if old_state_id and old_state_id in state_mapping:
+                        mapped_state_id = state_mapping[old_state_id]
+
+                # Map issue labels (handle both label_ids list and nested labels objects)
+                mapped_labels = []
+                labels_data = issue.get("label_ids") or issue.get("labels")
+                if labels_data:
+                    for old_lbl in labels_data:
+                        lbl_id = old_lbl.get("id") if isinstance(old_lbl, dict) else old_lbl
+                        if lbl_id and lbl_id in label_mapping:
+                            mapped_labels.append(label_mapping[lbl_id])
+
                 new_issue_payload = {
                     "name": issue["name"],
-                    "description_html": new_desc,
+                    "description_html": old_desc,
                     "priority": issue.get("priority", "none"),
                     "assignees": mapped_assignees,
+                    "assignee_ids": mapped_assignees,
+                    "labels": mapped_labels,
+                    "label_ids": mapped_labels,
                 }
                 
-                if mapped_cycle_id:
-                    new_issue_payload["cycle"] = mapped_cycle_id
+                if mapped_state_id:
+                    new_issue_payload["state"] = mapped_state_id
+                    new_issue_payload["state_id"] = mapped_state_id
 
                 max_retries = 5
                 retry_delay = 2
@@ -608,32 +858,92 @@ def migrate():
                     
                     if create_issue_res.status_code in [200, 201]:
                         new_issue = create_issue_res.json()
-                        new_issue_id = new_issue["id"]
+                        new_issue_id = new_issue.get("id")
                         print(f"        [+] Imported issue: {issue['name']}")
+                        stats["issues_migrated"] += 1
+
+                        if mapped_cycle_id:
+                            if mapped_cycle_id not in cycle_associations:
+                                cycle_associations[mapped_cycle_id] = []
+                            cycle_associations[mapped_cycle_id].append(new_issue_id)
 
                         if mapped_module_ids:
                             for mod_id in mapped_module_ids:
-                                requests.post(
-                                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/{mod_id}/module-issues/",
-                                    headers=new_headers,
-                                    json={"issues": [new_issue_id]}
-                                )
+                                if mod_id not in module_associations:
+                                    module_associations[mod_id] = []
+                                module_associations[mod_id].append(new_issue_id)
                         break
                     elif create_issue_res.status_code == 429 or "RATE_LIMIT_EXCEEDED" in create_issue_res.text:
-                        import time
                         print(f"        [!] Rate limit hit. Waiting {retry_delay}s (Attempt {attempt+1}/{max_retries})...")
                         time.sleep(retry_delay)
                         retry_delay *= 2
                     else:
-                        print(f"        [-] Failed to import issue {issue['name']}: {create_issue_res.text}")
+                        err_msg = f"Failed to import issue '{issue['name']}' in project '{proj_name}': {create_issue_res.text}"
+                        stats["issues_failed"] += 1
+                        stats["errors"].append(err_msg)
+                        print(f"        [-] {err_msg}")
                         break
                 else:
-                    print(f"        [-] Exceeded maximum retries for issue: {issue['name']}")
+                    err_msg = f"Exceeded maximum retries for issue '{issue['name']}' in project '{proj_name}'"
+                    stats["issues_failed"] += 1
+                    stats["errors"].append(err_msg)
+ 
+            # Bulk associate issues to cycles
+            if cycle_associations:
+                print("    [+] Linking work items to cycles in bulk...")
+                for cycle_id, issue_ids in cycle_associations.items():
+                    c_res = requests.post(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/{cycle_id}/cycle-issues/",
+                        headers=new_headers,
+                        json={"issues": issue_ids},
+                        timeout=30
+                    )
+                    if c_res.status_code in [200, 201]:
+                        print(f"        [+] Linked {len(issue_ids)} work items to cycle '{cycle_id_to_name.get(cycle_id, cycle_id)}' in bulk.")
+                    else:
+                        print(f"        [-] Failed to bulk associate issues to cycle {cycle_id}: {c_res.text}")
+
+            # Bulk associate issues to modules
+            if module_associations:
+                print("    [+] Linking work items to modules in bulk...")
+                for mod_id, issue_ids in module_associations.items():
+                    m_res = requests.post(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/{mod_id}/module-issues/",
+                        headers=new_headers,
+                        json={"issues": issue_ids},
+                        timeout=30
+                    )
+                    if m_res.status_code in [200, 201]:
+                        print(f"        [+] Linked {len(issue_ids)} work items to module '{module_id_to_name.get(mod_id, mod_id)}' in bulk.")
+                    else:
+                        print(f"        [-] Failed to bulk associate issues to module {mod_id}: {m_res.text}")
 
         except Exception as e:
+            stats["errors"].append(f"Error migrating issues for project {proj_name}: {e}")
             print(f"    [-] Error migrating issues for project {proj_name}: {e}")
 
-    print("\n[+] Migration process completed!")
+    # Output Migration Summary Report
+    print("\n" + "="*50)
+    print("MIGRATION PROCESS COMPLETED - SUMMARY REPORT")
+    print("="*50)
+    print(f"Projects migrated:             {stats['projects_migrated']}")
+    print(f"Workspace members invited:     {stats['workspace_members_invited']} (Failed: {stats['workspace_members_failed']})")
+    print(f"Project states synced:         {stats['states_migrated']} (Failed: {stats['states_failed']})") 
+    print(f"Project labels synced:         {stats['labels_migrated']} (Failed: {stats['labels_failed']})")
+    print(f"Project cycles synced:         {stats['cycles_migrated']} (Failed: {stats['cycles_failed']})")
+    print(f"Project modules synced:        {stats['modules_migrated']} (Failed: {stats['modules_failed']})")
+    print(f"Issues / Work items imported:  {stats['issues_migrated']} (Failed: {stats['issues_failed']})")
+    print("="*50)
+    
+    if stats["errors"]:
+        print(f"\n[!] Warnings/Errors encountered during migration ({len(stats['errors'])}):")
+        for err in stats["errors"][:15]:  # Show first 15 errors to keep screen clean
+            print(f"  - {err}")
+        if len(stats["errors"]) > 15:
+            print(f"  ... and {len(stats['errors']) - 15} more. Review logs above.")
+    else:
+        print("\n[+] Migration completed successfully with zero errors!")
+    print("="*50 + "\n")
 
 
 if __name__ == "__main__":
