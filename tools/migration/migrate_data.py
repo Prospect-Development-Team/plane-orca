@@ -370,7 +370,6 @@ def migrate():
                     pass
 
                 if not new_proj_id:
-                    # Final fallback: find by identifier
                     new_proj_id_res = requests.get(
                         f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
                         headers=new_headers,
@@ -379,6 +378,7 @@ def migrate():
                     if matching_projs:
                         new_proj_id = matching_projs[0]["id"]
                         print(f"    [!] Project creation error but project found by identifier: {new_proj_id} ({create_proj_res.text[:80]})")
+                        stats["projects_migrated"] += 1
                     else:
                         print(f"    [-] Could not create or find project {proj_name} on Orca. Skipping. ({create_proj_res.text[:80]})")
         except Exception as e:
@@ -620,30 +620,13 @@ def migrate():
         label_mapping = {}
         try:
             target_labels_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/?per_page=500",
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/",
                 headers=new_headers,
             )
             existing_labels = {}
             if target_labels_res.status_code == 200:
                 l_list = get_list_from_response(target_labels_res.json())
-                existing_labels = {l["name"].strip().lower(): l for l in l_list if isinstance(l, dict) and l.get("name")}
-
-            # Also pull workspace-level labels — Plane may store some labels there
-            # (e.g. default labels seeded at workspace scope) and reject project-level
-            # creation by the same name even though they don't appear in the project GET.
-            ws_labels_res = requests.get(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/?per_page=500",
-                headers=new_headers,
-            )
-            if ws_labels_res.status_code == 200:
-                ws_lbl_data = ws_labels_res.json()
-                ws_lbl_list = ws_lbl_data.get("results", []) if isinstance(ws_lbl_data, dict) else ws_lbl_data
-                if isinstance(ws_lbl_list, list):
-                    for l in ws_lbl_list:
-                        if isinstance(l, dict) and l.get("name"):
-                            key = l["name"].strip().lower()
-                            if key not in existing_labels:
-                                existing_labels[key] = l
+                existing_labels = {l["name"]: l for l in l_list if isinstance(l, dict) and l.get("name")}
 
             labels_res = requests.get(
                 f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/labels/",
@@ -651,24 +634,20 @@ def migrate():
             )
             labels = get_list_from_response(labels_res.json()) if labels_res.status_code == 200 else []
             for label in labels:
-                if not isinstance(label, dict) or not label.get("name"):
-                    continue
                 label_name = label["name"]
-                cleaned_name = label_name.strip().lower()
-                if cleaned_name in existing_labels:
-                    print(f"        [~] Label '{label_name}' already exists on Orca. Mapping.")
-                    label_mapping[label["id"]] = existing_labels[cleaned_name]["id"]
+                if label_name in existing_labels:
+                    print(f"        [-] Label '{label_name}' already exists on Orca. Mapping.")
+                    label_mapping[label["id"]] = existing_labels[label_name]["id"]
                     continue
 
-                label_payload = {
+                lbl_payload = {
                     "name": label_name,
-                    "color": label.get("color", "#FF5733"),
-                    "description": label.get("description", ""),
+                    "color": label.get("color", "#CCCCCC"),
                 }
                 lbl_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/",
                     headers=new_headers,
-                    json=label_payload
+                    json=lbl_payload
                 )
                 if lbl_res.status_code in [200, 201]:
                     new_lbl = lbl_res.json()
@@ -676,27 +655,15 @@ def migrate():
                     stats["labels_migrated"] += 1
                     print(f"        [+] Created label: {label_name}")
                 else:
-                    # Fallback: re-fetch all labels (project + workspace) to find and map it
-                    found_lbl = None
-                    for lbl_url in [
-                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/labels/?per_page=500",
-                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/?per_page=500",
-                    ]:
-                        fb_res = requests.get(lbl_url, headers=new_headers)
-                        if fb_res.status_code == 200:
-                            res_data = fb_res.json()
-                            lbl_list = res_data.get("results", []) if isinstance(res_data, dict) else res_data
-                            if isinstance(lbl_list, list):
-                                found_lbl = next(
-                                    (l for l in lbl_list
-                                     if isinstance(l, dict) and l.get("name", "").strip().lower() == cleaned_name),
-                                    None
-                                )
-                        if found_lbl:
-                            break
-
-                    if found_lbl:
-                        label_mapping[label["id"]] = found_lbl["id"]
+                    # Fallback to checking if workspace-level label matches
+                    workspace_labels_res = requests.get(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/labels/",
+                        headers=new_headers
+                    )
+                    workspace_labels = get_list_from_response(workspace_labels_res.json()) if workspace_labels_res.status_code == 200 else []
+                    matching_labels = [wl for wl in workspace_labels if wl.get("name") == label_name]
+                    if matching_labels:
+                        label_mapping[label["id"]] = matching_labels[0]["id"]
                         print(f"        [~] Label '{label_name}' found on Orca (workspace-level). Mapped.")
                     else:
                         err_msg = f"Failed to create label {label_name}: {lbl_res.text}"
@@ -748,29 +715,27 @@ def migrate():
                 start_date = cycle.get("start_date")
                 end_date = cycle.get("end_date")
                 if start_date and end_date and start_date > end_date:
-                    start_date = None
-                    end_date = None
+                    start_date, end_date = end_date, start_date
 
                 cycle_payload = {
                     "name": cycle["name"],
                     "description": cycle.get("description", ""),
                     "start_date": start_date,
                     "end_date": end_date,
-                    "project_id": new_proj_id
                 }
-                c_res = requests.post(
+                cy_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/",
                     headers=new_headers,
                     json=cycle_payload
                 )
-                if c_res.status_code in [200, 201]:
-                    new_c = c_res.json()
-                    cycle_mapping[cycle["id"]] = new_c["id"]
-                    cycle_id_to_name[new_c["id"]] = cycle["name"]
+                if cy_res.status_code in [200, 201]:
+                    new_cy = cy_res.json()
+                    cycle_mapping[cycle["id"]] = new_cy["id"]
+                    cycle_id_to_name[new_cy["id"]] = cycle["name"]
                     stats["cycles_migrated"] += 1
                     print(f"        [+] Created cycle: {cycle['name']}")
                 else:
-                    err_msg = f"Failed to create cycle {cycle['name']}: {c_res.text}"
+                    err_msg = f"Failed to create cycle {cycle['name']}: {cy_res.text}"
                     stats["cycles_failed"] += 1
                     stats["errors"].append(err_msg)
                     print(f"        [-] {err_msg}")
@@ -821,15 +786,9 @@ def migrate():
                 module_payload = {
                     "name": module["name"],
                     "description": module.get("description", ""),
-                    "start_date": module.get("start_date", None),
-                    "end_date": module.get("end_date", None),
-                    "status": module.get("status", "backlog"),
-                    "project_id": new_proj_id
+                    "start_date": module.get("start_date"),
+                    "target_date": module.get("target_date"),
                 }
-                # Only include lead if it maps to a real user — null lead causes validation errors
-                mapped_module_lead = map_user_id(module.get("lead"))
-                if mapped_module_lead:
-                    module_payload["lead"] = mapped_module_lead
                 m_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/",
                     headers=new_headers,
@@ -861,6 +820,19 @@ def migrate():
                 NEW_PLANE_URL
             )
             existing_issue_names = {i["name"] for i in existing_issues if i.get("name")}
+
+            # Fetch existing intake issues on the target project to prevent duplicates
+            existing_intake_issues = fetch_all_paginated_results(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/intake-issues/?per_page=100",
+                new_headers,
+                NEW_PLANE_URL
+            )
+            # Both issue_detail name and underlying issue name can be checked
+            existing_intake_names = set()
+            for ei in existing_intake_issues:
+                det = ei.get("issue_detail")
+                if isinstance(det, dict) and det.get("name"):
+                    existing_intake_names.add(det["name"])
 
             # Fetch ALL source issues across all pages using clean cursor/offset navigation
             issues = fetch_all_paginated_results(
@@ -900,7 +872,13 @@ def migrate():
 
             print(f"    [+] Found {len(issues)} issues to migrate (including intake-only).")
             for idx, issue in enumerate(issues, start=1):
-                if issue["name"] in existing_issue_names:
+                old_issue_id = issue.get("id")
+                is_intake_issue = old_issue_id in old_intake_issue_map
+
+                if is_intake_issue and issue["name"] in existing_intake_names:
+                    print(f"        [-] ({idx}/{len(issues)}) Intake issue '{issue['name']}' already exists on Orca. Skipping.")
+                    continue
+                elif not is_intake_issue and issue["name"] in existing_issue_names:
                     print(f"        [-] ({idx}/{len(issues)}) Issue '{issue['name']}' already exists on Orca. Skipping.")
                     continue
 
