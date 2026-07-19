@@ -4,24 +4,26 @@ Utility scripts for migrating workspace data between Plane installations.
 
 ## Migrated Entities Status
 
-| Entity / Resource           | Migrated? | Notes / Behavior                                                                                                               |
-| :-------------------------- | :-------: | :----------------------------------------------------------------------------------------------------------------------------- |
-| **Projects**                |  ✅ Yes   | Recreated with the same name, identifier, and description.                                                                     |
-| **Project Settings**        |  ✅ Yes   | Toggles for cycle, module, page, views, and intake layouts are synced.                                                         |
-| **Workflow States**         |  ✅ Yes   | Syncs custom project workflow states (name, color, group). Maps issues to their correct state.                                 |
-| **Project Labels**          |  ✅ Yes   | Syncs custom project labels (name, color, description). Maps issues to their correct labels.                                   |
-| **Cycles**                  |  ✅ Yes   | Recreated with name, description, start date, and end date.                                                                    |
-| **Modules**                 |  ✅ Yes   | Recreated with name, description, status, start date, and end date.                                                            |
-| **Issues / Work Items**     |  ✅ Yes   | Copied with title, description (HTML), and priority. Mapped to their respective state, labels, cycle, modules, and assignees.  |
-| **Users / Members**         |  ✅ Yes   | Workspace members are matched by email. If they don't exist, an invitation is sent to their email with their mapped role.      |
-| **Project Memberships**     |  ✅ Yes   | Syncs project members with their correct matching role.                                                                        |
-| **Views**                   |   ❌ No   | Saved views are not migrated. The Plane PAT API does not expose a view creation endpoint.                                      |
-| **Project Pages**           |   ❌ No   | Pages are not migrated. The Plane PAT API does not expose a page creation endpoint.                                            |
-| **Intake / Inbox Items**    |   ❌ No   | Intake items are not migrated as a separate entity. All issues are imported as standard work items regardless of their source. |
-| **Embedded Images / Files** |   ❌ No   | Inline images/files in issue descriptions are not re-uploaded; original URLs are preserved as-is in the description HTML.      |
-| **User Stickies**           |   ❌ No   | Workspace sticky notes are not migrated.                                                                                       |
-| **Stand-alone Attachments** |   ❌ No   | Attachments not directly referenced inside issue content (like raw sidecar files) are not copied.                              |
-| **Comments & History**      |   ❌ No   | Discarded to keep the migration footprint clean.                                                                               |
+| Entity / Resource           | Migrated? | Notes / Behavior                                                                                                              |
+| :-------------------------- | :-------: | :---------------------------------------------------------------------------------------------------------------------------- |
+| **Projects**                |  ✅ Yes   | Recreated with the same name, identifier, and description.                                                                    |
+| **Project Settings**        |  ✅ Yes   | Toggles for cycle, module, page, views, and intake layouts are synced.                                                        |
+| **Workflow States**         |  ✅ Yes   | Syncs custom project workflow states (name, color, group). Maps issues to their correct state.                                |
+| **Project Labels**          |  ✅ Yes   | Syncs custom project labels (name, color, description). Maps issues to their correct labels.                                  |
+| **Cycles**                  |  ✅ Yes   | Recreated with name, description, start date, and end date.                                                                   |
+| **Modules**                 |  ✅ Yes   | Recreated with name, description, status, start date, and end date.                                                           |
+| **Issues / Work Items**     |  ✅ Yes   | Copied with title, description (HTML), and priority. Mapped to their respective state, labels, cycle, modules, and assignees. |
+| **Users / Members**         |  ✅ Yes   | Workspace members are matched by email. If they don't exist, an invitation is sent to their email with their mapped role.     |
+| **Project Memberships**     |  ✅ Yes   | Syncs project members with their correct matching role.                                                                       |
+| **Estimates**               |  ✅ Yes   | Recreates project estimate point systems and links issues to their respective `estimate_point`.                               |
+| **Comments**                |  ✅ Yes   | Syncs issue comment threads, mapping commentator user accounts where possible.                                                |
+| **Issue Links**             |  ✅ Yes   | Syncs external links (GitHub PRs, reference URLs) associated with issues.                                                     |
+| **Intake / Inbox Items**    |  ✅ Yes   | Syncs automatically when issues are migrated in their respective `triage` workflow states.                                    |
+| **Stand-alone Attachments** |   ❌ No   | Downloads raw sidecar files from the source, uploads them to the target workspace generic asset store, and links to issues.   |
+| **Views**                   |   ❌ No   | Saved views are not migrated. They require session authentication instead of API tokens.                                      |
+| **Project Pages**           |   ❌ No   | Pages are not migrated. They require session authentication instead of API tokens.                                            |
+| **Embedded Images / Files** |   ❌ No   | Inline images/files in issue descriptions are not re-uploaded; original URLs are preserved as-is in the description HTML.     |
+| **User Stickies**           |   ❌ No   | Workspace sticky notes are not migrated.                                                                                      |
 
 ---
 

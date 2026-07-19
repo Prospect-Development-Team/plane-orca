@@ -31,6 +31,13 @@ new_headers = {
     "Content-Type": "application/json",
 }
 
+# Session setup for connection pooling
+old_session = requests.Session()
+old_session.headers.update(old_headers)
+
+new_session = requests.Session()
+new_session.headers.update(new_headers)
+
 
 def check_config():
     missing = []
@@ -90,9 +97,10 @@ def get_next_cursor_url(current_url, next_cursor):
 def fetch_all_paginated_results(url, headers, base_url):
     results = []
     current_url = url
+    session = old_session if headers == old_headers else new_session
     while current_url:
         try:
-            res = requests.get(current_url, headers=headers, timeout=30)
+            res = session.get(current_url, timeout=30)
             if res.status_code == 200:
                 data = res.json()
                 if isinstance(data, list):
@@ -454,6 +462,100 @@ def migrate():
         except Exception as e:
             print(f"        [!] Failed to sync project members: {e}")
 
+        # Migrate Project Estimates
+        print("    [+] Syncing project estimates and points...")
+        estimate_mapping = {}
+        estimate_point_mapping = {}
+        try:
+            # Fetch existing estimates on target
+            target_estimates_res = requests.get(
+                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/estimates/",
+                headers=new_headers,
+                timeout=30
+            )
+            existing_estimates = {}
+            if target_estimates_res.status_code == 200:
+                est_list = get_list_from_response(target_estimates_res.json())
+                existing_estimates = {e["name"]: e for e in est_list if isinstance(e, dict) and e.get("name")}
+
+            # Fetch source estimates
+            source_estimates_res = requests.get(
+                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/estimates/",
+                headers=old_headers,
+                timeout=30
+            )
+            source_estimates = get_list_from_response(source_estimates_res.json()) if source_estimates_res.status_code == 200 else []
+            
+            for est in source_estimates:
+                est_name = est["name"]
+                target_est_id = None
+                if est_name in existing_estimates:
+                    print(f"        [-] Estimate '{est_name}' already exists on Orca. Mapping.")
+                    target_est_id = existing_estimates[est_name]["id"]
+                    estimate_mapping[est["id"]] = target_est_id
+                else:
+                    est_payload = {
+                        "name": est_name,
+                        "description": est.get("description", ""),
+                    }
+                    create_est_res = requests.post(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/estimates/",
+                        headers=new_headers,
+                        json=est_payload,
+                        timeout=30
+                    )
+                    if create_est_res.status_code in [200, 201]:
+                        new_est = create_est_res.json()
+                        target_est_id = new_est["id"]
+                        estimate_mapping[est["id"]] = target_est_id
+                        print(f"        [+] Created estimate system: {est_name}")
+                    else:
+                        print(f"        [-] Failed to create estimate system {est_name}: {create_est_res.text}")
+
+                if target_est_id:
+                    # Sync estimate points
+                    # Fetch existing target points
+                    target_pts_res = requests.get(
+                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/estimates/{target_est_id}/estimate-points/",
+                        headers=new_headers,
+                        timeout=30
+                    )
+                    existing_pts = {}
+                    if target_pts_res.status_code == 200:
+                        pts_list = get_list_from_response(target_pts_res.json())
+                        existing_pts = {str(p["key"]): p for p in pts_list if isinstance(p, dict) and p.get("key") is not None}
+
+                    # Fetch source points
+                    source_pts_res = requests.get(
+                        f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/estimates/{est['id']}/estimate-points/",
+                        headers=old_headers,
+                        timeout=30
+                    )
+                    source_pts = get_list_from_response(source_pts_res.json()) if source_pts_res.status_code == 200 else []
+                    
+                    for pt in source_pts:
+                        pt_key = str(pt["key"])
+                        if pt_key in existing_pts:
+                            estimate_point_mapping[pt["id"]] = existing_pts[pt_key]["id"]
+                        else:
+                            pt_payload = {
+                                "key": pt["key"],
+                                "value": pt.get("value", 0),
+                            }
+                            create_pt_res = requests.post(
+                                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/estimates/{target_est_id}/estimate-points/",
+                                headers=new_headers,
+                                json=pt_payload,
+                                timeout=30
+                            )
+                            if create_pt_res.status_code in [200, 201]:
+                                new_pt = create_pt_res.json()
+                                estimate_point_mapping[pt["id"]] = new_pt["id"]
+                            else:
+                                print(f"        [-] Failed to create estimate point {pt_key}: {create_pt_res.text}")
+        except Exception as e:
+            print(f"        [!] Failed to sync project estimates: {e}")
+
         # Migrate Project States
         print("    [+] Syncing project workflow states...")
         state_mapping = {}
@@ -767,16 +869,39 @@ def migrate():
                 OLD_PLANE_URL
             )
 
+            # Fetch old intake issues — build a map keyed by inner issue ID
+            old_intake_issue_map = {}
+            try:
+                old_intake_issues = fetch_all_paginated_results(
+                    f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/intake-issues/?per_page=100",
+                    old_headers,
+                    OLD_PLANE_URL
+                )
+                issues_ids_in_main = {i.get("id") for i in issues if i.get("id")}
+                for oi in old_intake_issues:
+                    issue_detail = oi.get("issue_detail") if isinstance(oi.get("issue_detail"), dict) else None
+                    issue_id = oi.get("issue") or oi.get("issue_id") or (issue_detail or {}).get("id")
+                    if issue_id:
+                        old_intake_issue_map[issue_id] = oi
+                        # Pending intake issues (status=-2) are NOT in the main /issues/ list.
+                        # Inject their issue_detail into our issues list so they get migrated.
+                        if issue_id not in issues_ids_in_main and issue_detail:
+                            issues.append(issue_detail)
+                            issues_ids_in_main.add(issue_id)
+                print(f"    [+] Found {len(old_intake_issue_map)} intake issues ({sum(1 for oi in old_intake_issues if oi.get('status', -2) == -2)} pending).")
+            except Exception as e:
+                print(f"        [!] Error pre-fetching old intake issues: {e}")
+
             # Map user new ID back to email for printing assignees
             user_id_to_email = {uid: email for email, uid in user_email_to_new_id.items()}
 
             cycle_associations = {}
             module_associations = {}
 
-            print(f"    [+] Found {len(issues)} issues to migrate.")
-            for issue in issues:
+            print(f"    [+] Found {len(issues)} issues to migrate (including intake-only).")
+            for idx, issue in enumerate(issues, start=1):
                 if issue["name"] in existing_issue_names:
-                    print(f"        [-] Issue '{issue['name']}' already exists on Orca. Skipping.")
+                    print(f"        [-] ({idx}/{len(issues)}) Issue '{issue['name']}' already exists on Orca. Skipping.")
                     continue
 
                 old_desc = issue.get("description_html", "")
@@ -832,6 +957,18 @@ def migrate():
                         lbl_id = old_lbl.get("id") if isinstance(old_lbl, dict) else old_lbl
                         if lbl_id and lbl_id in label_mapping:
                             mapped_labels.append(label_mapping[lbl_id])
+                
+                # Map estimate point
+                mapped_estimate_point = None
+                old_est_pt = issue.get("estimate_point")
+                if old_est_pt and old_est_pt in estimate_point_mapping:
+                    mapped_estimate_point = estimate_point_mapping[old_est_pt]
+
+                # Map issue creator
+                old_created_by = issue.get("created_by")
+                if isinstance(old_created_by, dict):
+                    old_created_by = old_created_by.get("id")
+                mapped_created_by = map_user_id(old_created_by) or current_new_user_id
 
                 new_issue_payload = {
                     "name": issue["name"],
@@ -843,24 +980,219 @@ def migrate():
                     "label_ids": mapped_labels,
                 }
                 
+                if mapped_created_by:
+                    new_issue_payload["created_by"] = mapped_created_by
+
+                if mapped_estimate_point:
+                    new_issue_payload["estimate_point"] = mapped_estimate_point
+                
                 if mapped_state_id:
                     new_issue_payload["state"] = mapped_state_id
                     new_issue_payload["state_id"] = mapped_state_id
 
+                is_intake_issue = old_issue_id in old_intake_issue_map
+
                 max_retries = 5
                 retry_delay = 2
                 for attempt in range(max_retries):
-                    create_issue_res = requests.post(
-                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/",
-                        headers=new_headers,
-                        json=new_issue_payload,
-                    )
+                    if is_intake_issue:
+                        intake_payload = {
+                            "issue": {
+                                "name": issue["name"],
+                                "description_html": old_desc,
+                                "priority": issue.get("priority", "none"),
+                            }
+                        }
+                        create_issue_res = new_session.post(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/intake-issues/",
+                            json=intake_payload,
+                            timeout=30
+                        )
+                    else:
+                        create_issue_res = new_session.post(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/",
+                            json=new_issue_payload,
+                            timeout=30
+                        )
                     
                     if create_issue_res.status_code in [200, 201]:
-                        new_issue = create_issue_res.json()
-                        new_issue_id = new_issue.get("id")
-                        print(f"        [+] Imported issue: {issue['name']}")
+                        target_data = create_issue_res.json()
+                        if is_intake_issue:
+                            new_issue_id = (target_data.get("issue_detail", {}) or {}).get("id") or target_data.get("issue")
+                            
+                            # 1. Update IntakeIssue status/snoozed_till via the correct PATCH URL
+                            # The endpoint uses issue_id (not the intake record ID) in the URL.
+                            old_oi = old_intake_issue_map[old_issue_id]
+                            intake_patch_payload = {
+                                "status": old_oi.get("status", -2),
+                                "snoozed_till": old_oi.get("snoozed_till"),
+                            }
+                            patch_res = new_session.patch(
+                                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/intake-issues/{new_issue_id}/",
+                                json=intake_patch_payload,
+                                timeout=30
+                            )
+                            if patch_res.status_code not in [200, 201]:
+                                print(f"        [!] Failed to sync intake status for '{issue['name']}': {patch_res.text}")
+
+                            # 2. Patch newly created Issue to apply assignees, labels, state, estimate points.
+                            # IMPORTANT: Skip this for accepted intakes (status=1) because the intake PATCH
+                            # above already transitions state from TRIAGE → default. If we patch the issue
+                            # state again here it would reset it back to TRIAGE (the old mapped state),
+                            # making the intake appear as "pending" in the UI.
+                            old_intake_status = old_oi.get("status", -2)
+                            if old_intake_status != 1:
+                                new_session.patch(
+                                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/{new_issue_id}/",
+                                    json=new_issue_payload,
+                                    timeout=30
+                                )
+                        else:
+                            new_issue_id = target_data.get("id")
+                        
+                        print(f"        [+] ({idx}/{len(issues)}) Imported issue: {issue['name']}")
                         stats["issues_migrated"] += 1
+
+                        # Migrate Comments for this issue
+                        try:
+                            comments_res = old_session.get(
+                                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/issues/{issue['id']}/comments/",
+                                timeout=30
+                            )
+                            if comments_res.status_code == 200:
+                                comments = get_list_from_response(comments_res.json())
+                                for comment in comments:
+                                    comment_payload = {
+                                        "comment_html": comment.get("comment_html", ""),
+                                        "comment_json": comment.get("comment_json", {}),
+                                        "comment_stripped": comment.get("comment_stripped", ""),
+                                    }
+                                    actor_id = comment.get("actor") or comment.get("commented_by") or comment.get("created_by")
+                                    mapped_actor = map_user_id(actor_id)
+                                    if mapped_actor:
+                                        comment_payload["actor"] = mapped_actor
+                                        comment_payload["commented_by"] = mapped_actor
+                                        comment_payload["created_by"] = mapped_actor
+                                    
+                                    new_session.post(
+                                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/{new_issue_id}/comments/",
+                                        json=comment_payload,
+                                        timeout=30
+                                    )
+                        except Exception as e:
+                            print(f"        [!] Failed to sync comments for issue '{issue['name']}': {e}")
+
+                        # Migrate Links for this issue
+                        try:
+                            links_res = old_session.get(
+                                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/issues/{issue['id']}/links/",
+                                timeout=30
+                            )
+                            if links_res.status_code == 200:
+                                links = get_list_from_response(links_res.json())
+                                for link in links:
+                                    link_payload = {
+                                        "title": link.get("title", ""),
+                                        "url": link.get("url", ""),
+                                        "metadata": link.get("metadata", {}),
+                                    }
+                                    old_link_creator = link.get("created_by")
+                                    if isinstance(old_link_creator, dict):
+                                        old_link_creator = old_link_creator.get("id")
+                                    mapped_link_creator = map_user_id(old_link_creator)
+                                    if mapped_link_creator:
+                                        link_payload["created_by"] = mapped_link_creator
+                                    new_session.post(
+                                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/{new_issue_id}/links/",
+                                        json=link_payload,
+                                        timeout=30
+                                    )
+                        except Exception as e:
+                            print(f"        [!] Failed to sync links for issue '{issue['name']}': {e}")
+
+                        # Migrate Attachments for this issue
+                        try:
+                            attachments_res = old_session.get(
+                                f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/issues/{issue['id']}/issue-attachments/",
+                                timeout=30
+                            )
+                            if attachments_res.status_code == 200:
+                                attachments = get_list_from_response(attachments_res.json())
+                                for att in attachments:
+                                    att_id = att.get("id")
+                                    if not att_id:
+                                        continue
+
+                                    file_name = att.get("attributes", {}).get("name", "attachment")
+                                    file_type = att.get("attributes", {}).get("type", "application/octet-stream")
+                                    file_size = int(att.get("attributes", {}).get("size", 1024))
+
+                                    # Step 1: Create attachment record on the TARGET issue.
+                                    # This endpoint (POST /issue-attachments/) creates a FileAsset with
+                                    # issue_id set correctly and returns a presigned S3 upload URL.
+                                    create_att_res = new_session.post(
+                                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/{new_issue_id}/issue-attachments/",
+                                        json={"name": file_name, "type": file_type, "size": file_size},
+                                        timeout=30
+                                    )
+                                    if create_att_res.status_code not in [200, 201]:
+                                        print(f"          [!] Failed to create attachment slot for '{file_name}': {create_att_res.text}")
+                                        continue
+
+                                    att_info = create_att_res.json()
+                                    upload_data = att_info.get("upload_data", {})
+                                    target_asset_id = att_info.get("asset_id")
+                                    upload_url = upload_data.get("url")
+                                    upload_fields = upload_data.get("fields", {})
+
+                                    if not upload_url or not target_asset_id:
+                                        print(f"          [!] No upload URL returned for '{file_name}', skipping.")
+                                        continue
+
+                                    # Step 2: Download the binary from the SOURCE server.
+                                    # The Plane API redirect endpoint returns a 302 to a presigned S3 URL.
+                                    # We must NOT follow the redirect with auth headers (S3 presigned URLs
+                                    # reject requests that carry an Authorization header). Instead:
+                                    # a) get the redirect location without following it,
+                                    # b) then fetch the binary from S3 without any auth headers.
+                                    download_url = f"{OLD_PLANE_URL}/api/v1/workspaces/{OLD_WORKSPACE_SLUG}/projects/{proj['id']}/issues/{issue['id']}/issue-attachments/{att_id}/"
+                                    redir_res = old_session.get(download_url, timeout=30, allow_redirects=False)
+                                    if redir_res.status_code in [301, 302, 303, 307, 308]:
+                                        # Follow the redirect manually without auth headers
+                                        s3_download_url = redir_res.headers.get("Location")
+                                        file_res = requests.get(s3_download_url, timeout=60)
+                                    elif redir_res.status_code == 200:
+                                        # Direct response (e.g. local storage returns file directly)
+                                        file_res = redir_res
+                                    else:
+                                        print(f"          [!] Failed to get download URL for '{file_name}': HTTP {redir_res.status_code}")
+                                        continue
+                                    if file_res.status_code not in [200, 206]:
+                                        print(f"          [!] Failed to download source attachment '{file_name}': HTTP {file_res.status_code}")
+                                        continue
+
+                                    # Step 3: POST binary to the presigned target S3/MinIO URL (unauthenticated).
+                                    multipart_fields = dict(upload_fields)
+                                    multipart_files = {"file": (file_name, file_res.content, file_type)}
+                                    s3_res = requests.post(upload_url, data=multipart_fields, files=multipart_files, timeout=60)
+                                    if s3_res.status_code not in [200, 201, 204]:
+                                        print(f"          [!] S3 upload failed for '{file_name}': HTTP {s3_res.status_code}")
+                                        continue
+
+                                    # Step 4: Confirm upload is complete via PATCH.
+                                    confirm_res = new_session.patch(
+                                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/{new_issue_id}/issue-attachments/{target_asset_id}/",
+                                        json={"is_uploaded": True},
+                                        timeout=30
+                                    )
+                                    if confirm_res.status_code == 204:
+                                        print(f"          [+] Attachment synced: {file_name}")
+                                    else:
+                                        print(f"          [!] Failed to confirm upload for '{file_name}': {confirm_res.text}")
+                        except Exception as e:
+                            print(f"        [!] Failed to sync attachments for issue '{issue['name']}': {e}")
+
+
 
                         if mapped_cycle_id:
                             if mapped_cycle_id not in cycle_associations:
@@ -892,9 +1224,8 @@ def migrate():
             if cycle_associations:
                 print("    [+] Linking work items to cycles in bulk...")
                 for cycle_id, issue_ids in cycle_associations.items():
-                    c_res = requests.post(
+                    c_res = new_session.post(
                         f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/{cycle_id}/cycle-issues/",
-                        headers=new_headers,
                         json={"issues": issue_ids},
                         timeout=30
                     )
@@ -907,9 +1238,8 @@ def migrate():
             if module_associations:
                 print("    [+] Linking work items to modules in bulk...")
                 for mod_id, issue_ids in module_associations.items():
-                    m_res = requests.post(
+                    m_res = new_session.post(
                         f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/modules/{mod_id}/module-issues/",
-                        headers=new_headers,
                         json={"issues": issue_ids},
                         timeout=30
                     )
