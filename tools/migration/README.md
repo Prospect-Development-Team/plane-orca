@@ -1,36 +1,67 @@
 # Plane Migration Tools
 
-Utility scripts for migrating and manipulating workspaces, projects, pages, and issues between Plane installations.
+Utility scripts for migrating workspace data between Plane installations.
 
-## Migration Script (`migrate_data.py`)
+## Migrated Entities Status
 
-This script connects to a source (old) Plane instance using API tokens, retrieves its projects, pages, and issues, and creates/syncs them into the target (new) Plane Orca instance.
-
-### Migrated Entities Status
-
-| Entity / Resource           | Migrated? | Notes / Behavior                                                                                                                         |
-| :-------------------------- | :-------: | :--------------------------------------------------------------------------------------------------------------------------------------- |
-| **Projects**                |  ✅ Yes   | Recreated with the same name, identifier, and description.                                                                               |
-| **Project Settings**        |  ✅ Yes   | Toggles for cycle, module, page, views, and intake layouts are synced.                                                                   |
-| **Cycles**                  |  ✅ Yes   | Recreated with name, description, start date, and end date.                                                                              |
-| **Modules**                 |  ✅ Yes   | Recreated with name, description, status, start date, and end date.                                                                      |
-| **Views**                   |  ✅ Yes   | Recreated with name, description, access controls, and query filters.                                                                    |
-| **Issues / Work Items**     |  ✅ Yes   | Copied with title, description (HTML), and priority. Mapped to their respective cycle/modules.                                           |
-| **Project Pages**           |  ✅ Yes   | Copied with page title, description (HTML), and access control settings.                                                                 |
-| **Embedded Images / Files** |  ✅ Yes   | Scanned from page/issue descriptions, downloaded from the old server, uploaded to the new server's storage, and target URLs are updated. |
-| **Users / Members**         |  ✅ Yes   | Workspace members are matched by email. If they don't exist, an invitation is sent to their email with their mapped role.                |
-| **Project Memberships**     |  ✅ Yes   | Maps project members with their respective roles.                                                                                        |
-| **User Stickies**           |  ✅ Yes   | Migrates personal workspace dashboard sticky notes (title, description, colors).                                                         |
-| **Stand-alone Attachments** |   ❌ No   | Attachments not directly referenced inside the page/issue content editor (like raw sidecar files) are not copied.                        |
-| **Comments & History**      |   ❌ No   | Discarded to keep the migration footprint clean.                                                                                         |
+| Entity / Resource           | Migrated? | Notes / Behavior                                                                                                               |
+| :-------------------------- | :-------: | :----------------------------------------------------------------------------------------------------------------------------- |
+| **Projects**                |  ✅ Yes   | Recreated with the same name, identifier, and description.                                                                     |
+| **Project Settings**        |  ✅ Yes   | Toggles for cycle, module, page, views, and intake layouts are synced.                                                         |
+| **Workflow States**         |  ✅ Yes   | Syncs custom project workflow states (name, color, group). Maps issues to their correct state.                                 |
+| **Project Labels**          |  ✅ Yes   | Syncs custom project labels (name, color, description). Maps issues to their correct labels.                                   |
+| **Cycles**                  |  ✅ Yes   | Recreated with name, description, start date, and end date.                                                                    |
+| **Modules**                 |  ✅ Yes   | Recreated with name, description, status, start date, and end date.                                                            |
+| **Issues / Work Items**     |  ✅ Yes   | Copied with title, description (HTML), and priority. Mapped to their respective state, labels, cycle, modules, and assignees.  |
+| **Users / Members**         |  ✅ Yes   | Workspace members are matched by email. If they don't exist, an invitation is sent to their email with their mapped role.      |
+| **Project Memberships**     |  ✅ Yes   | Syncs project members with their correct matching role.                                                                        |
+| **Views**                   |   ❌ No   | Saved views are not migrated. The Plane PAT API does not expose a view creation endpoint.                                      |
+| **Project Pages**           |   ❌ No   | Pages are not migrated. The Plane PAT API does not expose a page creation endpoint.                                            |
+| **Intake / Inbox Items**    |   ❌ No   | Intake items are not migrated as a separate entity. All issues are imported as standard work items regardless of their source. |
+| **Embedded Images / Files** |   ❌ No   | Inline images/files in issue descriptions are not re-uploaded; original URLs are preserved as-is in the description HTML.      |
+| **User Stickies**           |   ❌ No   | Workspace sticky notes are not migrated.                                                                                       |
+| **Stand-alone Attachments** |   ❌ No   | Attachments not directly referenced inside issue content (like raw sidecar files) are not copied.                              |
+| **Comments & History**      |   ❌ No   | Discarded to keep the migration footprint clean.                                                                               |
 
 ---
 
-## Setup & Execution
+## Part 1: Pre-create User Accounts (On the Server hosting the new Plane database)
+
+To assign issues, module leads, and project roles to the correct users, their email accounts must exist in the target database first. We can automate querying the old server and seeding them using `create_users.py`.
+
+Because this script directly writes to the database using the Django ORM, **it must be run inside the new Plane container on your server**.
+
+### Step A: Run from your server shell (via Docker pipe)
+
+Run this command on your hosting server terminal where the container is running:
+
+```bash
+docker exec -i <new-plane-api-container-name> python3 - < tools/migration/create_users.py
+```
+
+_(If you are using Coolify, replace `<new-plane-api-container-name>` with the name of the container running your new Plane `api` service)._
+
+### Step B (Alternative): Manual Copy-Paste inside the container
+
+If you are already inside the container shell (`docker exec -it <container> sh`):
+
+1. Run `cat > create_users.py` inside the container shell.
+2. Paste the contents of `tools/migration/create_users.py` into the terminal.
+3. Press `Ctrl + D` to save the file.
+4. Run `python3 create_users.py`.
+5. Remove the temp file when done: `rm create_users.py`.
+
+_Note: Pre-created users are set with a temporary password `TemporaryOrca123!`. They can change this password under their profile settings upon logging in._
+
+---
+
+## Part 2: Run the Migration Script (On your local machine / client machine)
+
+The data migration script (`migrate_data.py`) communicates purely over Plane's HTTP APIs, meaning **you can run it on your local developer machine** without having server access.
 
 ### 1. Install Dependencies
 
-Create a virtual environment, activate it, and install the required dependencies:
+Make sure you have python virtual environment set up and dependencies installed:
 
 ```bash
 # Create a virtual environment in the tools directory
@@ -58,19 +89,7 @@ MIGRATION_NEW_API_TOKEN="your-new-api-token"
 MIGRATION_NEW_WORKSPACE_SLUG="your-new-workspace-slug"
 ```
 
-### 3. Pre-create User Accounts in target database
-
-To assign issues and project roles to the correct users, their email accounts must exist in the target database first. We can automate querying the old server and seeding them using `create_users.py`:
-
-Run this command inside your target Plane `api` container (you can copy-paste this in the terminal):
-
-```bash
-docker exec -i <new-plane-api-container-name> python3 - < tools/migration/create_users.py
-```
-
-_(If you are using Coolify, replace `<new-plane-api-container-name>` with the name of the container running your new Plane `api` service)._
-
-### 4. Run the Migration Script
+### 3. Run the Script
 
 Ensure your virtual environment is active, then run the script:
 

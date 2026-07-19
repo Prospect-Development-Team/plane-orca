@@ -6,10 +6,6 @@ import os
 import sys
 import django
 import requests
-from dotenv import load_dotenv
-
-# Load variables from .env
-load_dotenv()
 
 # Setup Django environment inside the container
 sys.path.append("/app")
