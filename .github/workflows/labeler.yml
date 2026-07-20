@@ -16,6 +16,7 @@ jobs:
   labeler:
     name: Auto Label & Template PR
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'release-please--') && github.event.pull_request.user.login != 'github-actions[bot]' }}
     steps:
       - name: Checkout Base Branch Code (Trusted)
         uses: actions/checkout@v7
