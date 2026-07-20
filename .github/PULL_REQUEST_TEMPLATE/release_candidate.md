@@ -14,7 +14,7 @@ This pull request promotes tested code changes from the **`stage`** branch to th
 - [ ] **Staging Verified**: Staging environment build and deployment have been fully verified and tested.
 - [ ] **Database Migrations**: Any database migrations (Django) have been reviewed, are safe to apply, and have been prepared.
 - [ ] **Coolify Environment variables**: New environment variables (if any) are configured in the Coolify production application.
-- [ ] **Commit Hygiene**: Checked that all custom commits use correct `orca-*` prefixes (`orca-feat`, `orca-fix`, `orca-ui`, etc.) so the changelog generates correctly.
+- [ ] **Commit Hygiene**: Checked that all custom commits use correct Conventional Commit format with `orca` scoping (e.g., `feat(orca):`, `fix(orca):`, etc.) so the changelog generates correctly.
 
 ---
 
