@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.1-plane.1.3.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.0.0-plane.1.3.1...v1.0.1-plane.1.3.1) (2026-07-20)
+
+
+### Features (Orca)
+
+* add migration tools to sync projects, issues, and users from Plane to Plane Orca ([7a08b7a](https://github.com/Prospect-Development-Team/plane-orca/commit/7a08b7ad558dddd8b487f39b48ad58c6df836cdb))
+
+
+### Bug Fixes (Orca)
+
+* prevent hydration mismatch by delaying theme-dependent UI rendering until component mount ([af0fccc](https://github.com/Prospect-Development-Team/plane-orca/commit/af0fcccb0f994b43e930c1721beb21ffe5b9171a))
+
+
+### Chores (Orca)
+
+* clean up duplicate entries in CHANGELOG.md ([83f9344](https://github.com/Prospect-Development-Team/plane-orca/commit/83f934420c33d550008448d138a1d32f66162f8a))
+* ensure required release labels exist in labeler workflow ([138d21a](https://github.com/Prospect-Development-Team/plane-orca/commit/138d21aeea8ec92e54227e351e070ebc2958786e))
+* restrict labeler workflow to prod/stage branches and secure package version retrieval ([8f30d09](https://github.com/Prospect-Development-Team/plane-orca/commit/8f30d0983bbbca9ff49fedc6211fb809250b2c94))
+* sync prod back to stage [skip ci] ([c13a7c4](https://github.com/Prospect-Development-Team/plane-orca/commit/c13a7c4b7dcb98878081ef3d68737c4ea2f0f3a9))
+* update release candidate PR template and refine automation title formatting ([8675100](https://github.com/Prospect-Development-Team/plane-orca/commit/8675100f6e237ac02645eea52a7dc1824046023a))
+
+
+### Code Refactoring (Orca)
+
+* implement project estimate synchronization and optimize API requests using persistent session connection pooling ([2ba4e13](https://github.com/Prospect-Development-Team/plane-orca/commit/2ba4e13d156eb52bfb04af47eff711fcb6b32a93))
+* improve project, label, cycle, and module migration logic with better error handling and duplication checks ([4bdbb71](https://github.com/Prospect-Development-Team/plane-orca/commit/4bdbb718e13a99209a3ba2cee2aa9a8022211b8f))
+* replace asset migration with generic pagination handling and workspace wiping capabilities ([9509d6e](https://github.com/Prospect-Development-Team/plane-orca/commit/9509d6ec31366ba55718d017b4b9c5456d94adc4))
+
 ## [1.0.0-plane.1.3.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v0.0.0-plane.1.3.1...v1.0.0-plane.1.3.1) (2026-07-18)
 
 ### Features (Orca)
