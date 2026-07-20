@@ -1,17 +1,26 @@
-## 🚀 Release Candidate Promotion Checklist
+## 🚀 Release Candidate Promotion
 
-This pull request promotes code changes from the **`stage`** branch to the **`prod`** (Production) branch.
+This pull request promotes tested code changes from the **`stage`** branch to the **`prod`** (Production) branch.
 
-### 📝 Release Details
+### 📝 Release Info
 
-- **Target Version**: `v1.3.1-orca.X.Y.Z` (Check package.json / update version)
-- **Release Branch**: `stage` -> `prod`
+- **Source:** `stage` ➡️ **Destination:** `prod`
+- **Release Version:** _Automated after merge via `release-please`_
 
-### 🚀 QA Verification Checklist
+---
 
-- [ ] **Staging Verified**: Staging deployment has been tested and verified to be stable.
-- [ ] **Database & Env**: Migrations are applied/safe; any new environment variables are configured.
+### 🚀 QA & Production Readiness Checklist
 
-### 🔍 Changelog & Commit Hygiene
+- [ ] **Staging Verified**: Staging environment build and deployment have been fully verified and tested.
+- [ ] **Database Migrations**: Any database migrations (Django) have been reviewed, are safe to apply, and have been prepared.
+- [ ] **Coolify Environment variables**: New environment variables (if any) are configured in the Coolify production application.
+- [ ] **Commit Hygiene**: Checked that all custom commits use correct `orca-*` prefixes (`orca-feat`, `orca-fix`, `orca-ui`, etc.) so the changelog generates correctly.
 
-- [ ] All commits included in this promotion use the correct Conventional Commit prefixes (`orca-feat:`, `orca-fix:`, `orca-ui:`, etc.).
+---
+
+> [!NOTE]
+> **Post-Merge Automation:**
+>
+> 1. Merging this PR triggers the `prod.yml` workflow, promoting staging Docker images to `latest` and triggering the production deployment in Coolify.
+> 2. `release-please` will automatically trigger to generate the correct version tag and changelog entries.
+> 3. Staging (`stage`) will be automatically synced with `prod` via background GitHub Actions.
