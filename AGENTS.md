@@ -45,14 +45,14 @@ All changes must follow the upstream compatibility model detailed in [FORK.md](.
 - **Database Schema**: Do not modify core database tables. Prefer storing metadata in JSON fields or creating a separate relational sidecar model (e.g. `CustomIssueProperties`) to avoid migration conflicts.
 - **Custom API Routes**: Register custom endpoints under a unique routing prefix (e.g., `/api/v1/custom/`) rather than modifying standard Plane route registries directly.
 - **Versioning**: Tag custom releases using the format `v[ForkVersion]-plane.[UpstreamVersion]` (e.g. `v1.0.0-plane.1.3.1`) to track both upstream and custom releases.
-- **Commit Prefixes**: Prefix custom changes based on category to enable release-please changelog grouping and upstream isolation:
-  - `orca-feat: [short description]` — Custom features, integrations, or sidecars.
-  - `orca-fix: [short description]` — Bug fixes for custom code.
-  - `orca-ui: [short description]` — Branding, logo, or color changes.
-  - `orca-style: [short description]` — Custom UI spacing or style improvements.
-  - `orca-docs: [short description]` — Documentation updates.
-  - `orca-chore: [short description]` — Development setup and dependency management.
-  - `orca-refactor: [short description]` — Code refactoring or cleanup.
+- **Commit Prefixes**: Use standard Conventional Commit prefixes with `orca` scoping to enable accurate release-please version bumping and changelog grouping:
+  - `feat(orca): [short description]` — Custom features, integrations, or sidecars. (Minor bump)
+  - `fix(orca): [short description]` — Bug fixes for custom code. (Patch bump)
+  - `style(orca-ui): [short description]` — Branding, logo, or color changes.
+  - `style(orca): [short description]` — Custom UI spacing or style improvements.
+  - `docs(orca): [short description]` — Documentation updates.
+  - `chore(orca): [short description]` — Development setup and dependency management.
+  - `refactor(orca): [short description]` — Code refactoring or cleanup.
 - **Atomic Commits**: Keep edits small and write semantic, isolated commits to make merging upstream updates easier.
 
 ## Token Efficiency & Command Guidelines
