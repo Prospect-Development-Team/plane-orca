@@ -13,7 +13,7 @@
 | `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
 
 - **Development Rules**: Please read and follow [FORK.md](./FORK.md) and [AGENTS.md](./AGENTS.md) closely.
-  - Use the commit prefixes: `orca-feat:`, `orca-fix:`, `orca-ui:`, `orca-style:`, `orca-docs:`, `orca-chore:`, or `orca-refactor:`.
+  - Use the conventional commit format: `feat(orca):`, `fix(orca):`, `style(orca-ui):`, `style(orca):`, `docs(orca):`, `chore(orca):`, or `refactor(orca):`.
   - Do not edit database migration files or drop core tables directly.
   - All files must adhere to standard monorepo styling rules and preserve existing license headers.
 

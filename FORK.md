@@ -132,23 +132,23 @@ To save development time and maintain consistency, several processes are complet
    git pull origin stage
    git checkout -b feature/your-custom-feature
    ```
-2. **Commit Hygiene**: Small, isolated commits. Use correct prefixes so **Release Please** can categorize your changes:
+2. **Commit Hygiene**: Small, isolated commits. Use correct prefixes with `orca` scoping so **Release Please** can accurately categorize your changes and trigger correct version bumps:
    | Commit Prefix | Description | Release Please Bump | Changelog Section |
    | :--------------------- | :----------------------------------------- | :------------------ | :---------------------- |
-   | `orca-feat: [msg]` | Custom features, integrations, or sidecars | **Minor** | Features (Orca) |
-   | `orca-fix: [msg]` | Bug fixes for custom code | **Patch** | Bug Fixes (Orca) |
-   | `orca-ui: [msg]` | Branding, logo, or asset overrides | **Patch** | Branding & UI (Orca) |
-   | `orca-style: [msg]` | Custom UI spacing or style improvements | _None_ | Styles (Orca) |
-   | `orca-docs: [msg]` | Documentation updates | _None_ | Documentation (Orca) |
-   | `orca-chore: [msg]` | Development setup and dependency changes | _None_ | Chores (Orca) |
-   | `orca-refactor: [msg]` | Code refactoring or cleanup | _None_ | Code Refactoring (Orca) |
+   | `feat(orca): [msg]` | Custom features, integrations, or sidecars | **Minor** | Features (Orca) |
+   | `fix(orca): [msg]` | Bug fixes for custom code | **Patch** | Bug Fixes (Orca) |
+   | `style(orca-ui): [msg]`| Branding, logo, or asset overrides | **Patch** | Branding & UI (Orca) |
+   | `style(orca): [msg]` | Custom UI spacing or style improvements | _None_ | Styles (Orca) |
+   | `docs(orca): [msg]` | Documentation updates | _None_ | Documentation (Orca) |
+   | `chore(orca): [msg]` | Development setup and dependency changes | _None_ | Chores (Orca) |
+   | `refactor(orca): [msg]`| Code refactoring or cleanup | _None_ | Code Refactoring (Orca) |
 
 ---
 
 ### Phase 2: Pull Request to Staging (`stage-pr`)
 
 1. **Open the PR**: Create a PR targeting the **`stage`** branch.
-2. **PR Naming**: Give the PR a title starting with your commit prefix (e.g. `orca-feat: hide upgrade button`).
+2. **PR Naming**: Give the PR a title starting with your commit prefix (e.g. `feat(orca): hide upgrade button`).
 3. **PR Description Warning**: Leave the description block empty (containing only the default warning comment) and click **"Create pull request"**.
 4. **Auto-Templating**: Within 5 seconds, a background GitHub Action (`labeler.yml`) will:
    - Label the PR with `stage-pr`.
