@@ -54,7 +54,7 @@ jobs:
             gh pr edit "$PR_NUMBER" --add-label "release-candidate"
             
             # Update Title with version
-            gh pr edit "$PR_NUMBER" --title "orca-release: Promote Release Candidate v${{ env.VERSION }}"
+            gh pr edit "$PR_NUMBER" --title "orca-release: Promote Release Candidate from v${{ env.VERSION }}"
             
             # Update Body with Release Candidate template if not already customized
             if [ "$SHOULD_TEMPLATIZE" = "true" ]; then
