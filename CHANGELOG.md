@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.1.0-plane.1.3.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.0.0-plane.1.3.1...v1.1.0-plane.1.3.1) (2026-07-20)
+
+
+### ✨ Features
+
+* **orca:** add migration tools to sync projects, issues, and users from Plane to Plane Orca ([5b36f6a](https://github.com/Prospect-Development-Team/plane-orca/commit/5b36f6a99a42351f0b6514749111adc3cb768cc4))
+
+
+### 🐛 Bug Fixes
+
+* **orca:** prevent hydration mismatch by delaying theme-dependent UI rendering until component mount ([ca51a2a](https://github.com/Prospect-Development-Team/plane-orca/commit/ca51a2a11a7e19bff1f6939ee49a5e91e3e1a5eb))
+
+
+### ♻️ Refactoring
+
+* **orca:** implement project estimate synchronization and optimize API requests using persistent session connection pooling ([54a5607](https://github.com/Prospect-Development-Team/plane-orca/commit/54a56074d4b2f1d1d711fb71f51d4cb090d5cf75))
+* **orca:** improve project, label, cycle, and module migration logic with better error handling and duplication checks ([1d08e5d](https://github.com/Prospect-Development-Team/plane-orca/commit/1d08e5dfffea71d1cf67c9b9ede21c3e7bc0faf1))
+* **orca:** replace asset migration with generic pagination handling and workspace wiping capabilities ([09b5487](https://github.com/Prospect-Development-Team/plane-orca/commit/09b5487d667a4f1efad83e62ba77aa05e9183eb0))
+
+
+### 🔧 Chores & Maintenance
+
+* **orca:** clean up duplicate entries in CHANGELOG.md ([582fae8](https://github.com/Prospect-Development-Team/plane-orca/commit/582fae881a9f4a4dc91acbe88f64364c4a2ca45b))
+* **orca:** enable visibility for test, ci, and build in release-please changelog ([5c28123](https://github.com/Prospect-Development-Team/plane-orca/commit/5c28123f062e522ace204dfa2427a06c48e6c833))
+* **orca:** ensure required release labels exist in labeler workflow ([403118c](https://github.com/Prospect-Development-Team/plane-orca/commit/403118c2ed87a7b879a753455474e323fab9585e))
+* **orca:** restrict labeler workflow to prod/stage branches and secure package version retrieval ([9b31b2b](https://github.com/Prospect-Development-Team/plane-orca/commit/9b31b2b55a9fa78a5946e5f43543026ea7d03bc0))
+* **orca:** skip labeler workflow for release-please and bot-initiated pull requests ([8a47f12](https://github.com/Prospect-Development-Team/plane-orca/commit/8a47f1220caf3edaa35dcb1a9d7267a270563342))
+* **orca:** sync prod back to stage [skip ci] ([6a41de4](https://github.com/Prospect-Development-Team/plane-orca/commit/6a41de42d60169b9d3a716440155532c4552c451))
+* **orca:** update commit prefixes to standard conventional commit format in documentation ([159ba35](https://github.com/Prospect-Development-Team/plane-orca/commit/159ba3505986f74aade18a731dc0a446ede42bdc))
+* **orca:** update release candidate PR template and refine automation title formatting ([80a1067](https://github.com/Prospect-Development-Team/plane-orca/commit/80a1067b933d009a1f003fa42d19a101db38f320))
+* **orca:** update templates to use scoped conventional commit naming ([b1316d0](https://github.com/Prospect-Development-Team/plane-orca/commit/b1316d073038254facbfb8bf2d0c5edac691b9cb))
+
 ## [1.0.0-plane.1.3.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v0.0.0-plane.1.3.1...v1.0.0-plane.1.3.1) (2026-07-18)
 
 ### Features (Orca)
