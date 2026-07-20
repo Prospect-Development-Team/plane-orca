@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/shapes/config.json",
   "packages": {
     ".": {
       "package-name": "plane-orca",
@@ -10,23 +10,16 @@
       "include-v-in-tag": true,
       "include-component-in-tag": false,
       "changelog-sections": [
-        { "type": "orca-feat", "section": "Features (Orca)", "hidden": false },
-        { "type": "orca-fix", "section": "Bug Fixes (Orca)", "hidden": false },
-        { "type": "orca-ui", "section": "Branding & UI (Orca)", "hidden": false },
-        { "type": "orca-style", "section": "Styles (Orca)", "hidden": false },
-        { "type": "orca-docs", "section": "Documentation (Orca)", "hidden": false },
-        { "type": "orca-chore", "section": "Chores (Orca)", "hidden": false },
-        { "type": "orca-refactor", "section": "Code Refactoring (Orca)", "hidden": false },
-        { "type": "feat", "hidden": true },
-        { "type": "fix", "hidden": true },
-        { "type": "chore", "hidden": true },
-        { "type": "docs", "hidden": true },
-        { "type": "style", "hidden": true },
-        { "type": "refactor", "hidden": true },
-        { "type": "perf", "hidden": true },
-        { "type": "test", "hidden": true },
-        { "type": "ci", "hidden": true },
-        { "type": "build", "hidden": true }
+        { "type": "feat", "section": "✨ Features", "hidden": false },
+        { "type": "fix", "section": "🐛 Bug Fixes", "hidden": false },
+        { "type": "style", "section": "🎨 Styles & UI", "hidden": false },
+        { "type": "docs", "section": "📝 Documentation", "hidden": false },
+        { "type": "refactor", "section": "♻️ Refactoring", "hidden": false },
+        { "type": "perf", "section": "⚡ Performance", "hidden": false },
+        { "type": "chore", "section": "🔧 Chores & Maintenance", "hidden": false },
+        { "type": "test", "section": "🧪 Tests", "hidden": false },
+        { "type": "ci", "section": "⚙️ Continuous Integration", "hidden": false },
+        { "type": "build", "section": "📦 Build System & Dependencies", "hidden": false }
       ],
       "extra-files": []
     }
