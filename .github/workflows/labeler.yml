@@ -3,6 +3,9 @@ name: Pull Request Labeler & Template Manager
 on:
   pull_request_target:
     types: [opened, reopened, synchronized]
+    branches:
+      - prod
+      - stage
 
 permissions:
   pull-requests: write
@@ -13,16 +16,16 @@ jobs:
     name: Auto Label & Template PR
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Base Branch Code (Trusted)
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Extract Version
+      - name: Extract Version from PR securely
         if: github.event.pull_request.base.ref == 'prod'
-        id: get_version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(gh api repos/${{ github.repository }}/contents/package.json?ref=$PR_HEAD_SHA --jq '.content' | base64 --decode | jq -r '.version')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Update PR Properties
