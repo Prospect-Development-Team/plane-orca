@@ -6,13 +6,13 @@
 
 <!-- Put an 'x' in the boxes that apply -->
 
-- [ ] orca-feat (custom feature, integration, or sidecar)
-- [ ] orca-fix (bug fix for custom code)
-- [ ] orca-ui (branding, logo, or color change)
-- [ ] orca-style (UI styling/spacing improvements)
-- [ ] orca-refactor (refactoring or cleanup)
-- [ ] orca-docs (documentation update)
-- [ ] orca-chore (development setup or dependencies)
+- [ ] `feat(orca):` (custom feature, integration, or sidecar)
+- [ ] `fix(orca):` (bug fix for custom code)
+- [ ] `style(orca-ui):` (branding, logo, or color change)
+- [ ] `style(orca):` (UI styling/spacing improvements)
+- [ ] `refactor(orca):` (refactoring or cleanup)
+- [ ] `docs(orca):` (documentation update)
+- [ ] `chore(orca):` (development setup or dependencies)
 
 ### Screenshots and Media (if applicable)
 
