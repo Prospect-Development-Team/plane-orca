@@ -9,6 +9,7 @@ on:
 
 permissions:
   pull-requests: write
+  issues: write
   contents: read
 
 jobs:
@@ -34,6 +35,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
+          # Create labels if they do not exist
+          gh label create "release-candidate" --color "d4c5f9" --description "Release Candidate Promotion PR" || true
+          gh label create "stage-pr" --color "bfd4f2" --description "Staging Pull Request" || true
+
           # Fetch current PR body to see if it is empty or matches default template warning
           CURRENT_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body')
           
