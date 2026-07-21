@@ -30,8 +30,9 @@ from plane.utils.content_validator import (
 class ProjectSerializer(BaseSerializer):
     workspace_detail = WorkspaceLiteSerializer(source="workspace", read_only=True)
     inbox_view = serializers.BooleanField(read_only=True, source="intake_view")
-    # Custom override: field for managing parallel cycles configuration
+    # Custom override: fields for managing custom project configuration
     parallel_cycles = serializers.BooleanField(required=False)
+    cycle_auto_complete = serializers.BooleanField(required=False)
 
     class Meta:
         model = Project
@@ -41,9 +42,7 @@ class ProjectSerializer(BaseSerializer):
     def to_representation(self, instance):
         """
         Custom override:
-        Incorporate `parallel_cycles` setting in the project representation.
-        If `ProjectCustomSettings` exists for the project, retrieve the value;
-        otherwise, fallback to the default project `cycle_view` setting.
+        Incorporate `parallel_cycles` and `cycle_auto_complete` settings in the project representation.
         """
         data = super().to_representation(instance)
         custom_settings = getattr(instance, "custom_settings", None)
@@ -52,7 +51,13 @@ class ProjectSerializer(BaseSerializer):
             if custom_settings is not None
             else instance.cycle_view
         )
+        auto_complete = (
+            custom_settings.cycle_auto_complete
+            if custom_settings is not None
+            else False
+        )
         data["parallel_cycles"] = parallel
+        data["cycle_auto_complete"] = auto_complete
         return data
 
     def validate_name(self, name):
@@ -109,10 +114,11 @@ class ProjectSerializer(BaseSerializer):
     def create(self, validated_data):
         """
         Custom override:
-        Create the project, pop parallel_cycles from validated data and initialize the project's
-        `ProjectCustomSettings` setting parallel_cycles config accordingly.
+        Create the project, pop custom fields from validated data and initialize the project's
+        `ProjectCustomSettings` settings accordingly.
         """
         parallel_cycles = validated_data.pop("parallel_cycles", True)
+        cycle_auto_complete = validated_data.pop("cycle_auto_complete", False)
         workspace_id = self.context["workspace_id"]
 
         project = Project.objects.create(**validated_data, workspace_id=workspace_id)
@@ -123,7 +129,8 @@ class ProjectSerializer(BaseSerializer):
         ProjectCustomSettings.objects.create(
             project=project,
             workspace=project.workspace,
-            parallel_cycles=parallel_cycles
+            parallel_cycles=parallel_cycles,
+            cycle_auto_complete=cycle_auto_complete
         )
 
         return project
@@ -131,18 +138,24 @@ class ProjectSerializer(BaseSerializer):
     def update(self, instance, validated_data):
         """
         Custom override:
-        Update project details, extract parallel_cycles setting and apply the change to
+        Update project details, extract custom settings and apply the changes to
         `ProjectCustomSettings` for the project.
         """
         parallel_cycles = validated_data.pop("parallel_cycles", None)
-        if parallel_cycles is not None:
+        cycle_auto_complete = validated_data.pop("cycle_auto_complete", None)
+        
+        if parallel_cycles is not None or cycle_auto_complete is not None:
             from plane.db.models import ProjectCustomSettings
             custom_settings, _ = ProjectCustomSettings.objects.get_or_create(
                 project=instance,
                 defaults={"workspace": instance.workspace}
             )
-            custom_settings.parallel_cycles = parallel_cycles
+            if parallel_cycles is not None:
+                custom_settings.parallel_cycles = parallel_cycles
+            if cycle_auto_complete is not None:
+                custom_settings.cycle_auto_complete = cycle_auto_complete
             custom_settings.save()
+            
         return super().update(instance, validated_data)
 
 
@@ -171,6 +184,7 @@ class ProjectListSerializer(DynamicBaseSerializer):
     inbox_view = serializers.BooleanField(read_only=True, source="intake_view")
     next_work_item_sequence = serializers.SerializerMethodField()
     parallel_cycles = serializers.BooleanField(required=False)
+    cycle_auto_complete = serializers.BooleanField(required=False)
 
     def get_members(self, obj):
         project_members = getattr(obj, "members_list", None)
@@ -191,8 +205,7 @@ class ProjectListSerializer(DynamicBaseSerializer):
     def to_representation(self, instance):
         """
         Custom override:
-        Incorporate `parallel_cycles` setting in the project representation.
-        Fallback to the default project `cycle_view` if no custom settings exist.
+        Incorporate `parallel_cycles` and `cycle_auto_complete` settings in the project representation.
         """
         data = super().to_representation(instance)
         custom_settings = getattr(instance, "custom_settings", None)
@@ -201,7 +214,13 @@ class ProjectListSerializer(DynamicBaseSerializer):
             if custom_settings is not None
             else instance.cycle_view
         )
+        auto_complete = (
+            custom_settings.cycle_auto_complete
+            if custom_settings is not None
+            else False
+        )
         data["parallel_cycles"] = parallel
+        data["cycle_auto_complete"] = auto_complete
         return data
 
 
@@ -213,8 +232,9 @@ class ProjectDetailSerializer(BaseSerializer):
     sort_order = serializers.FloatField(read_only=True)
     member_role = serializers.IntegerField(read_only=True)
     anchor = serializers.CharField(read_only=True)
-    # Custom override: field for managing parallel cycles configuration
+    # Custom override: fields for managing custom project configuration
     parallel_cycles = serializers.BooleanField(required=False)
+    cycle_auto_complete = serializers.BooleanField(required=False)
 
     class Meta:
         model = Project
@@ -223,7 +243,7 @@ class ProjectDetailSerializer(BaseSerializer):
     def to_representation(self, instance):
         """
         Custom override:
-        Incorporate `parallel_cycles` setting in the project detail representation.
+        Incorporate `parallel_cycles` and `cycle_auto_complete` settings in the project detail representation.
         """
         data = super().to_representation(instance)
         custom_settings = getattr(instance, "custom_settings", None)
@@ -232,23 +252,35 @@ class ProjectDetailSerializer(BaseSerializer):
             if custom_settings is not None
             else instance.cycle_view
         )
+        auto_complete = (
+            custom_settings.cycle_auto_complete
+            if custom_settings is not None
+            else False
+        )
         data["parallel_cycles"] = parallel
+        data["cycle_auto_complete"] = auto_complete
         return data
 
     def update(self, instance, validated_data):
         """
         Custom override:
-        Update project detail details, applying the parallel_cycles change to `ProjectCustomSettings`.
+        Update project detail details, applying custom settings changes to `ProjectCustomSettings`.
         """
         parallel_cycles = validated_data.pop("parallel_cycles", None)
-        if parallel_cycles is not None:
+        cycle_auto_complete = validated_data.pop("cycle_auto_complete", None)
+        
+        if parallel_cycles is not None or cycle_auto_complete is not None:
             from plane.db.models import ProjectCustomSettings
             custom_settings, _ = ProjectCustomSettings.objects.get_or_create(
                 project=instance,
                 defaults={"workspace": instance.workspace}
             )
-            custom_settings.parallel_cycles = parallel_cycles
+            if parallel_cycles is not None:
+                custom_settings.parallel_cycles = parallel_cycles
+            if cycle_auto_complete is not None:
+                custom_settings.cycle_auto_complete = cycle_auto_complete
             custom_settings.save()
+            
         return super().update(instance, validated_data)
 
 

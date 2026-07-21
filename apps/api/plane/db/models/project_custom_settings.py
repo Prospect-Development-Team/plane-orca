@@ -25,6 +25,7 @@ class ProjectCustomSettings(ProjectBaseModel):
         related_name="custom_settings",
     )
     parallel_cycles = models.BooleanField(default=False)
+    cycle_auto_complete = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Project Custom Settings"
