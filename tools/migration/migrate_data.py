@@ -31,6 +31,23 @@ new_headers = {
     "Content-Type": "application/json",
 }
 
+# Override requests.Session.request to globally handle HTTP 429 (Rate Limit Exceeded)
+_original_request = requests.Session.request
+
+def rate_limited_request(self, method, url, *args, **kwargs):
+    max_retries = 10
+    backoff = 30
+    for attempt in range(max_retries):
+        res = _original_request(self, method, url, *args, **kwargs)
+        if res.status_code == 429:
+            print(f"        [!] HTTP 429 RATE_LIMIT_EXCEEDED on {url}. Sleeping {backoff} seconds and retrying (attempt {attempt + 1}/{max_retries})...")
+            time.sleep(backoff)
+            continue
+        return res
+    return _original_request(self, method, url, *args, **kwargs)
+
+requests.Session.request = rate_limited_request
+
 # Session setup for connection pooling
 old_session = requests.Session()
 old_session.headers.update(old_headers)
@@ -159,6 +176,13 @@ def migrate():
 
     # Ask user if they want to wipe the workspace
     wipe_choice = input("[?] Do you want to wipe the target workspace before migrating? (y/N): ").strip().lower()
+    
+    ask_per_project = True
+    if wipe_choice not in ["yes", "y"]:
+        ask_per_project_choice = input("[?] Ask/confirm before syncing each existing project? (Y/n): ").strip().lower()
+        if ask_per_project_choice in ["no", "n"]:
+            ask_per_project = False
+
     if wipe_choice in ["yes", "y"]:
         print("\n[!] Wiping target workspace...")
         # Delete projects (and their labels first to avoid ghost records)
@@ -325,66 +349,92 @@ def migrate():
         print(f"[-] Failed to fetch projects from old Plane: {e}")
         return
 
+    # Fetch existing projects from target Plane
+    print(f"[+] Fetching existing projects from target ({NEW_PLANE_URL})...")
+    existing_target_projs_map = {}
+    try:
+        target_projects = fetch_all_paginated_results(
+            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/?per_page=100",
+            new_headers,
+            NEW_PLANE_URL
+        )
+        for tp in target_projects:
+            if isinstance(tp, dict) and tp.get("identifier"):
+                existing_target_projs_map[tp["identifier"]] = tp
+    except Exception as e:
+        print(f"[!] Warning: Could not fetch existing projects from target: {e}")
+
     for proj in projects:
         proj_name = proj["name"]
         proj_identifier = proj["identifier"]
         print(f"\n[+] Migrating project: {proj_name} ({proj_identifier})...")
 
-        # 4. Create Project in New Plane (Orca)
-        new_proj_payload = {
-            "name": proj_name,
-            "identifier": proj_identifier,
-            "description": proj.get("description", ""),
-            "network": proj.get("network", 2),
-            "inbox_view": proj.get("inbox_view", proj.get("intake_view", True)),
-        }
-        # Only include optional fields when they have a real value — Plane rejects
-        # null/empty for project_lead, emoji, and icon_prop with a generic error.
-        mapped_lead = map_user_id(proj.get("project_lead"))
-        if mapped_lead:
-            new_proj_payload["project_lead"] = mapped_lead
-        if proj.get("emoji"):
-            new_proj_payload["emoji"] = proj["emoji"]
-        if proj.get("icon_prop"):
-            new_proj_payload["icon_prop"] = proj["icon_prop"]
         new_proj_id = None
-        try:
-            create_proj_res = requests.post(
-                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
-                headers=new_headers,
-                json=new_proj_payload,
-            )
-            if create_proj_res.status_code in [200, 201]:
-                new_proj = create_proj_res.json()
-                new_proj_id = new_proj["id"]
-                print(f"    [+] Created project on Orca: {proj_name}")
-                stats["projects_migrated"] += 1
-            else:
-                # The Orca API sometimes creates the project but returns an error status.
-                # Check if the response body contains an 'id' before doing a GET lookup.
-                try:
-                    resp_body = create_proj_res.json()
-                    if resp_body.get("id"):
-                        new_proj_id = resp_body["id"]
-                        print(f"    [+] Created project on Orca: {proj_name} (HTTP {create_proj_res.status_code}, project was still created)")
-                        stats["projects_migrated"] += 1
-                except Exception:
-                    pass
+        existing_proj = existing_target_projs_map.get(proj_identifier)
+        if existing_proj:
+            if ask_per_project:
+                ans = input(f"    [?] Project '{proj_name}' ({proj_identifier}) already exists on target. Sync/update it? (y/N): ").strip().lower()
+                if ans not in ['y', 'yes']:
+                    print(f"    [-] Skipping project sync.")
+                    continue
+            new_proj_id = existing_proj["id"]
+            print(f"    [+] Updating existing project: {proj_name}")
 
-                if not new_proj_id:
-                    new_proj_id_res = requests.get(
-                        f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
-                        headers=new_headers,
-                    )
-                    matching_projs = [p for p in new_proj_id_res.json().get("results", []) if p["identifier"] == proj_identifier]
-                    if matching_projs:
-                        new_proj_id = matching_projs[0]["id"]
-                        print(f"    [!] Project creation error but project found by identifier: {new_proj_id} ({create_proj_res.text[:80]})")
-                        stats["projects_migrated"] += 1
-                    else:
-                        print(f"    [-] Could not create or find project {proj_name} on Orca. Skipping. ({create_proj_res.text[:80]})")
-        except Exception as e:
-            print(f"    [-] Error creating project {proj_name}: {e}")
+        # 4. Create Project in New Plane (Orca)
+        if not new_proj_id:
+            new_proj_payload = {
+                "name": proj_name,
+                "identifier": proj_identifier,
+                "description": proj.get("description", ""),
+                "network": proj.get("network", 2),
+                "inbox_view": proj.get("inbox_view", proj.get("intake_view", True)),
+            }
+            # Only include optional fields when they have a real value — Plane rejects
+            # null/empty for project_lead, emoji, and icon_prop with a generic error.
+            mapped_lead = map_user_id(proj.get("project_lead"))
+            if mapped_lead:
+                new_proj_payload["project_lead"] = mapped_lead
+            if proj.get("emoji"):
+                new_proj_payload["emoji"] = proj["emoji"]
+            if proj.get("icon_prop"):
+                new_proj_payload["icon_prop"] = proj["icon_prop"]
+            try:
+                create_proj_res = requests.post(
+                    f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
+                    headers=new_headers,
+                    json=new_proj_payload,
+                )
+                if create_proj_res.status_code in [200, 201]:
+                    new_proj = create_proj_res.json()
+                    new_proj_id = new_proj["id"]
+                    print(f"    [+] Created project on Orca: {proj_name}")
+                    stats["projects_migrated"] += 1
+                else:
+                    # The Orca API sometimes creates the project but returns an error status.
+                    # Check if the response body contains an 'id' before doing a GET lookup.
+                    try:
+                        resp_body = create_proj_res.json()
+                        if resp_body.get("id"):
+                            new_proj_id = resp_body["id"]
+                            print(f"    [+] Created project on Orca: {proj_name} (HTTP {create_proj_res.status_code}, project was still created)")
+                            stats["projects_migrated"] += 1
+                    except Exception:
+                        pass
+
+                    if not new_proj_id:
+                        new_proj_id_res = requests.get(
+                            f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/",
+                            headers=new_headers,
+                        )
+                        matching_projs = [p for p in new_proj_id_res.json().get("results", []) if p["identifier"] == proj_identifier]
+                        if matching_projs:
+                            new_proj_id = matching_projs[0]["id"]
+                            print(f"    [!] Project creation error but project found by identifier: {new_proj_id} ({create_proj_res.text[:80]})")
+                            stats["projects_migrated"] += 1
+                        else:
+                            print(f"    [-] Could not create or find project {proj_name} on Orca. Skipping. ({create_proj_res.text[:80]})")
+            except Exception as e:
+                print(f"    [-] Error creating project {proj_name}: {e}")
 
         if not new_proj_id:
             continue
@@ -724,6 +774,7 @@ def migrate():
                     "description": cycle.get("description", ""),
                     "start_date": start_date,
                     "end_date": end_date,
+                    "project_id": new_proj_id,
                 }
                 cy_res = requests.post(
                     f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/cycles/",
@@ -815,26 +866,25 @@ def migrate():
         # 9. Fetch Issues for the project from Old Plane
         print(f"    [+] Fetching issues for project: {proj_name}...")
         try:
-            # Fetch all existing issue names from the target (paginated) to detect duplicates
+            # Fetch all existing issues from the target (paginated) to detect duplicates/changes
             existing_issues = fetch_all_paginated_results(
                 f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/?per_page=100",
                 new_headers,
                 NEW_PLANE_URL
             )
-            existing_issue_names = {i["name"] for i in existing_issues if i.get("name")}
+            existing_issues_map = {i["name"]: i for i in existing_issues if i.get("name")}
 
-            # Fetch existing intake issues on the target project to prevent duplicates
+            # Fetch existing intake issues on the target project to prevent duplicates/changes
             existing_intake_issues = fetch_all_paginated_results(
                 f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/intake-issues/?per_page=100",
                 new_headers,
                 NEW_PLANE_URL
             )
-            # Both issue_detail name and underlying issue name can be checked
-            existing_intake_names = set()
+            existing_intake_map = {}
             for ei in existing_intake_issues:
                 det = ei.get("issue_detail")
                 if isinstance(det, dict) and det.get("name"):
-                    existing_intake_names.add(det["name"])
+                    existing_intake_map[det["name"]] = ei
 
             # Fetch ALL source issues across all pages using clean cursor/offset navigation
             issues = fetch_all_paginated_results(
@@ -876,14 +926,6 @@ def migrate():
             for idx, issue in enumerate(issues, start=1):
                 old_issue_id = issue.get("id")
                 is_intake_issue = old_issue_id in old_intake_issue_map
-
-                if is_intake_issue and issue["name"] in existing_intake_names:
-                    print(f"        [-] ({idx}/{len(issues)}) Intake issue '{issue['name']}' already exists on Orca. Skipping.")
-                    continue
-                elif not is_intake_issue and issue["name"] in existing_issue_names:
-                    print(f"        [-] ({idx}/{len(issues)}) Issue '{issue['name']}' already exists on Orca. Skipping.")
-                    continue
-
                 old_desc = issue.get("description_html", "")
 
                 # Map cycle (handle relationship pre-fetch mapping first, then fallback to API keys)
@@ -971,6 +1013,89 @@ def migrate():
                     new_issue_payload["state_id"] = mapped_state_id
 
                 is_intake_issue = old_issue_id in old_intake_issue_map
+
+                # Check if the issue already exists on target (Orca) to update if needed
+                existing_record = existing_intake_map.get(issue["name"]) if is_intake_issue else existing_issues_map.get(issue["name"])
+                if existing_record:
+                    target_issue_obj = existing_record.get("issue_detail") if is_intake_issue else existing_record
+                    target_issue_id = target_issue_obj.get("id")
+                    
+                    changes = {}
+                    
+                    # 1. Compare description_html
+                    desc_target = target_issue_obj.get("description_html") or ""
+                    desc_source = old_desc or ""
+                    if desc_target != desc_source:
+                        changes["description_html"] = desc_source
+                        
+                    # 2. Compare priority
+                    if target_issue_obj.get("priority") != issue.get("priority", "none"):
+                        changes["priority"] = issue.get("priority", "none")
+                        
+                    # 3. Compare state
+                    if mapped_state_id:
+                        target_state = target_issue_obj.get("state")
+                        target_state_id = target_state.get("id") if isinstance(target_state, dict) else target_state
+                        if target_state_id != mapped_state_id:
+                            changes["state"] = mapped_state_id
+                            changes["state_id"] = mapped_state_id
+
+                    # 4. Compare estimate point
+                    if mapped_estimate_point:
+                        target_est = target_issue_obj.get("estimate_point")
+                        target_est_id = target_est.get("id") if isinstance(target_est, dict) else target_est
+                        if target_est_id != mapped_estimate_point:
+                            changes["estimate_point"] = mapped_estimate_point
+
+                    # 5. Compare assignees
+                    target_assignees = target_issue_obj.get("assignee_ids") or target_issue_obj.get("assignees") or []
+                    target_assignee_ids = [
+                        a.get("id") if isinstance(a, dict) else a
+                        for a in target_assignees
+                    ]
+                    target_assignee_ids = [uid for uid in target_assignee_ids if uid]
+                    if sorted(target_assignee_ids) != sorted(mapped_assignees):
+                        changes["assignees"] = mapped_assignees
+                        changes["assignee_ids"] = mapped_assignees
+
+                    # 6. Compare labels
+                    target_labels = target_issue_obj.get("label_ids") or target_issue_obj.get("labels") or []
+                    target_label_ids = [
+                        l.get("id") if isinstance(l, dict) else l
+                        for l in target_labels
+                    ]
+                    target_label_ids = [lid for lid in target_label_ids if lid]
+                    if sorted(target_label_ids) != sorted(mapped_labels):
+                        changes["labels"] = mapped_labels
+                        changes["label_ids"] = mapped_labels
+
+                    if not changes:
+                        print(f"        [-] ({idx}/{len(issues)}) Issue '{issue['name']}' already exists on Orca and is up to date. Skipping.")
+                    else:
+                        print(f"        [+] ({idx}/{len(issues)}) Issue '{issue['name']}' has changes. Updating...")
+                        if target_issue_id:
+                            patch_res = new_session.patch(
+                                f"{NEW_PLANE_URL}/api/v1/workspaces/{NEW_WORKSPACE_SLUG}/projects/{new_proj_id}/issues/{target_issue_id}/",
+                                json=changes,
+                                timeout=30
+                            )
+                            if patch_res.status_code in [200, 201]:
+                                print(f"            [+] Successfully updated fields: {list(changes.keys())}")
+                            else:
+                                print(f"            [!] Failed to update fields: {patch_res.text}")
+
+                    # Associate cycles and modules even if skipped or updated
+                    if target_issue_id:
+                        if mapped_cycle_id:
+                            if mapped_cycle_id not in cycle_associations:
+                                cycle_associations[mapped_cycle_id] = []
+                            cycle_associations[mapped_cycle_id].append(target_issue_id)
+                        if mapped_module_ids:
+                            for mod_id in mapped_module_ids:
+                                if mod_id not in module_associations:
+                                    module_associations[mod_id] = []
+                                module_associations[mod_id].append(target_issue_id)
+                    continue
 
                 max_retries = 5
                 retry_delay = 2
