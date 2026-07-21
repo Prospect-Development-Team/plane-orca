@@ -122,8 +122,10 @@ def fetch_all_paginated_results(url, headers, base_url):
                 else:
                     break
             else:
+                print(f"        [!] API request failed for {current_url}: HTTP {res.status_code} - {res.text[:200]}")
                 break
-        except Exception:
+        except Exception as e:
+            print(f"        [!] Exception during API request for {current_url}: {e}")
             break
     return results
 
