@@ -4,6 +4,7 @@ services:
   web:
     container_name: web
     image: ghcr.io/prospect-development-team/plane-orca/web:${TAG:-stage}
+    pull_policy: always
     restart: always
     depends_on:
       - api
@@ -15,6 +16,7 @@ services:
   admin:
     container_name: admin
     image: ghcr.io/prospect-development-team/plane-orca/admin:${TAG:-stage}
+    pull_policy: always
     restart: always
     depends_on:
       - api
@@ -27,6 +29,7 @@ services:
   space:
     container_name: space
     image: ghcr.io/prospect-development-team/plane-orca/space:${TAG:-stage}
+    pull_policy: always
     restart: always
     depends_on:
       - api
@@ -39,6 +42,7 @@ services:
   api:
     container_name: api
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    pull_policy: always
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     environment:
@@ -77,6 +81,7 @@ services:
   worker:
     container_name: bgworker
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    pull_policy: always
     restart: always
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-worker.sh
@@ -108,6 +113,7 @@ services:
   beat-worker:
     container_name: beatworker
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    pull_policy: always
     restart: always
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-beat.sh
@@ -139,6 +145,7 @@ services:
   migrator:
     container_name: plane-migrator
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
+    pull_policy: always
     restart: "no"
     exclude_from_hc: true
     command: ./bin/docker-entrypoint-migrator.sh
@@ -165,6 +172,7 @@ services:
   live:
     container_name: plane-live
     image: ghcr.io/prospect-development-team/plane-orca/live:${TAG:-stage}
+    pull_policy: always
     restart: always
     environment:
       - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
@@ -262,6 +270,7 @@ services:
   proxy:
     container_name: proxy
     image: ghcr.io/prospect-development-team/plane-orca/proxy:${TAG:-stage}
+    pull_policy: always
     restart: always
     expose:
       - 80
