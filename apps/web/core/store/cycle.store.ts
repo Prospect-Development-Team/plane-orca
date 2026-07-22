@@ -676,7 +676,10 @@ export class CycleStore implements ICycleStore {
    */
   endCycle = async (workspaceSlug: string, projectId: string, cycleId: string): Promise<ICycle> => {
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    return this.updateCycleDetails(workspaceSlug, projectId, cycleId, { end_date: today });
+    return this.updateCycleDetails(workspaceSlug, projectId, cycleId, {
+      end_date: today,
+      manually_completed: true,
+    } as any);
   };
 
   /**

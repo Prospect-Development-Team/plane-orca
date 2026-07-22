@@ -13,6 +13,8 @@ from plane.utils.timezone_converter import convert_to_utc
 
 
 class CycleWriteSerializer(BaseSerializer):
+    manually_completed = serializers.BooleanField(required=False, write_only=True)
+
     def validate(self, data):
         if (
             data.get("start_date", None) is not None
@@ -35,6 +37,38 @@ class CycleWriteSerializer(BaseSerializer):
                 date=str(data.get("end_date", None).date()),
                 project_id=project_id,
             )
+
+        # Custom Override: If cycle_auto_complete is disabled, handle manual cycle completion
+        if "end_date" in data:
+            new_end_date = data.get("end_date")
+            project_id = (
+                self.initial_data.get("project_id", None)
+                or (self.instance and self.instance.project_id)
+                or self.context.get("project_id", None)
+            )
+            from plane.db.models import ProjectCustomSettings
+            custom_settings = ProjectCustomSettings.objects.filter(project_id=project_id).first()
+            cycle_auto_complete = custom_settings.cycle_auto_complete if custom_settings else False
+            
+            if not cycle_auto_complete:
+                from django.utils import timezone
+                now = timezone.now()
+                view_props = data.get("view_props") or (self.instance.view_props if self.instance else {}) or {}
+                view_props = dict(view_props)
+                
+                # Only mark completed if manually_completed is passed
+                manually_completed = self.initial_data.get("manually_completed") in [True, "true", "True"]
+                
+                if manually_completed:
+                    view_props["completed"] = True
+                elif new_end_date is not None and new_end_date > now:
+                    # Reset if extended to future
+                    view_props["completed"] = False
+                elif new_end_date is None:
+                    view_props["completed"] = False
+                    
+                data["view_props"] = view_props
+
         return data
 
     class Meta:

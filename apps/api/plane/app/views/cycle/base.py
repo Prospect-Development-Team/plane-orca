@@ -151,18 +151,30 @@ class CycleViewSet(BaseViewSet):
             )
             .annotate(
                 status=Case(
-                    # Orca Custom Override: A cycle with start_date set and no end_date is CURRENT (manually started).
-                    # This allows cycles to be started without an end date, remaining active until explicitly ended.
+                    # 1. If auto-complete is enabled, a cycle is COMPLETED if its end_date has passed.
                     When(
-                        Q(start_date__lte=current_time_in_utc) & Q(end_date__isnull=True),
-                        then=Value("CURRENT"),
+                        Q(project__custom_settings__cycle_auto_complete=True) & Q(end_date__lt=current_time_in_utc),
+                        then=Value("COMPLETED"),
                     ),
+                    # 2. If auto-complete is disabled, a cycle is COMPLETED only if manually ended (marked completed in view_props).
                     When(
-                        Q(start_date__lte=current_time_in_utc) & Q(end_date__gte=current_time_in_utc),
-                        then=Value("CURRENT"),
+                        ~Q(project__custom_settings__cycle_auto_complete=True) & Q(view_props__completed=True),
+                        then=Value("COMPLETED"),
                     ),
+                    # 3. UPCOMING if start_date is in the future.
                     When(start_date__gt=current_time_in_utc, then=Value("UPCOMING")),
-                    When(end_date__lt=current_time_in_utc, then=Value("COMPLETED")),
+                    # 4. CURRENT if start_date has passed (and it didn't match COMPLETED above).
+                    # A cycle with start_date set and no end_date is CURRENT.
+                    # Additionally, if auto-complete is disabled, cycles remain CURRENT even after their end_date passes (unless manually completed).
+                    When(
+                        Q(start_date__lte=current_time_in_utc) & (
+                            Q(end_date__isnull=True) |
+                            Q(end_date__gte=current_time_in_utc) |
+                            ~Q(project__custom_settings__cycle_auto_complete=True)
+                        ),
+                        then=Value("CURRENT"),
+                    ),
+                    # 5. DRAFT if start_date is null.
                     When(
                         Q(start_date__isnull=True) & Q(end_date__isnull=True),
                         then=Value("DRAFT"),
