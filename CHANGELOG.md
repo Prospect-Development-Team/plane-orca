@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0-plane.1.3.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.1.0-plane.1.3.1...v1.2.0-plane.1.3.1) (2026-07-22)
+
+
+### ✨ Features
+
+* **orca:** add cycle auto-complete configuration to project settings and database models ([780232e](https://github.com/Prospect-Development-Team/plane-orca/commit/780232e1dc9603e8c2cbfab86c40e5d7b37d68f2))
+* **orca:** add detailed error logging for API request failures and exceptions in migration script ([a2da0c9](https://github.com/Prospect-Development-Team/plane-orca/commit/a2da0c964948dd16fbfdb5dec14785af06e38606))
+
+
+### 🔧 Chores & Maintenance
+
+* **orca:** add global HTTP 429 retry logic and support for syncing/updating existing projects during migration ([414ac5c](https://github.com/Prospect-Development-Team/plane-orca/commit/414ac5c70d18ba96fc499bfff0987690b7ee5aa1))
+* **orca:** set pull_policy to always for all services in docker-compose-orca.yml ([b6d3504](https://github.com/Prospect-Development-Team/plane-orca/commit/b6d350407289003bc1fbe8fba684e32fb20a40d4))
+
 ## [1.1.0-plane.1.3.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.0.0-plane.1.3.1...v1.1.0-plane.1.3.1) (2026-07-20)
 
 
