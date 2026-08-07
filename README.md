@@ -21,6 +21,41 @@
 
 All custom changes, new features, and bug fixes are automatically tracked and compiled by Release Please in [CHANGELOG.md](./CHANGELOG.md). Refer to it for the complete release history of this fork.
 
+### ✨ What Makes Plane Orca Different? (Fork Features)
+
+Plane Orca builds on top of official Plane Community Edition with extra features, workflow improvements, and simpler self-hosting:
+
+#### 🔄 Parallel Cycles (Sprints)
+
+- **Run Multiple Active Cycles**: Run more than one cycle at the same time in a single project.
+- **Manual Cycle Controls**: Manually start, pause, complete, or edit active and finished cycles anytime.
+- **Auto-Complete & Transfer**: Automatically finish cycles when their end date arrives, and easily transfer issues between active cycles.
+
+#### 🏷️ Shared Workspace Labels & States
+
+- **Global Workspace Labels**: Create issue labels at the workspace level so all projects share the same labels.
+- **Global Workflow States**: Use standardized issue states (e.g., In Progress, Done) across all team projects.
+
+#### ⚡ Productivity Quick Actions
+
+- **Quick Copy Details**: Right-click or open the issue menu to quickly copy Title, Description, or both.
+- **Form Value Retention**: Keeps what you typed in creation forms even if you toggle "Create More".
+- **Enhanced Bulk Operations**: Select and edit multiple work items faster with clearer multi-value dropdowns.
+
+#### 🛠️ Data Migration Tool
+
+- **Import from Another Plane**: Built-in Python migration tool ([tools/migration](./tools/migration/README.md)) to copy projects, issues, cycles, users, and labels from another Plane instance.
+
+#### 🎨 Clean & Distraction-Free UI
+
+- **Custom Branding**: Cleaned up logos and edition badges.
+- **No Promotional Ads**: Removed telemetry tracking and promotional popups for a faster, distraction-free interface.
+
+#### 🐳 Simple Self-Hosting (Coolify Ready)
+
+- **Low Memory Footprint**: Includes [docker-compose-orca.yml](./docker-compose-orca.yml), pre-configured to run smoothly on small VPS servers (<3GB RAM).
+- **Automated CI/CD**: Seamless deployment to Coolify with auto-versioning and changelog tracking ([CHANGELOG.md](./CHANGELOG.md)).
+
 ### 🐳 Self-Hosted Deployment (docker-compose-orca.yml)
 
 To deploy **Plane Orca** on your VPS via Coolify, we recommend using [docker-compose-orca.yml](./docker-compose-orca.yml).
