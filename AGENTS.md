@@ -31,7 +31,7 @@
 
 All changes must follow the upstream compatibility model detailed in [FORK.md](./FORK.md):
 
-- **Upstream Syncing**: Never commit custom logic or branding changes directly to the `main` branch. As an agent, always read and explicitly verify [FORK.md](./FORK.md) before implementing changes.
+- **Upstream Syncing**: Never commit custom logic or branding changes directly to the `upstream` branch. As an agent, always read and explicitly verify [FORK.md](./FORK.md) before implementing changes.
 
 - **Non-Destructive Branding**: Do not rewrite React component imports for logos/assets. Instead, use asset overrides or inject custom CSS.
   - Logo SVG react components are located in [packages/propel/src/icons/brand](./packages/propel/src/icons/brand) (e.g. `plane-logo.tsx`, `plane-lockup.tsx`, `plane-wordmark.tsx`).
