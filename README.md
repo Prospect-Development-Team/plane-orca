@@ -7,7 +7,7 @@
 
 | Branch      | Purpose                                                                                             | Source Branch          | Merge Target       | Environment                       |
 | :---------- | :-------------------------------------------------------------------------------------------------- | :--------------------- | :----------------- | :-------------------------------- |
-| `upstream`  | **Upstream Mirror**: Tracks unmodified official Plane CE releases.                                  | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
+| `upstream`  | **Upstream Mirror**: Tracks unmodified official Plane CE releases (`master` branch).                | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
 | `stage`     | **Staging/Integration**: Custom features, branding, and configs are integrated here.                | `stage`                | `stage`            | Staging / QA                      |
 | `prod`      | **Production Releases**: Deployed directly to our self-hosted Plane instance for team-internal use. | `stage`                | `prod`             | Production (Internal Self-Hosted) |
 | `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
