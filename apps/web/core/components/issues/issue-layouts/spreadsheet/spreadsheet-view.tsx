@@ -75,10 +75,10 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
   const spreadsheetColumnsList = isWorkspaceLevel
     ? SPREADSHEET_PROPERTY_LIST
     : SPREADSHEET_PROPERTY_LIST.filter((property) => {
-      if (property === "cycle" && !currentProjectDetails?.cycle_view) return false;
-      if (property === "modules" && !currentProjectDetails?.module_view) return false;
-      return true;
-    });
+        if (property === "cycle" && !currentProjectDetails?.cycle_view) return false;
+        if (property === "modules" && !currentProjectDetails?.module_view) return false;
+        return true;
+      });
 
   if (!issueIds || issueIds.length === 0) return <></>;
   return (

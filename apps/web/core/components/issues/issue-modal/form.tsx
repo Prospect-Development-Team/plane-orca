@@ -237,12 +237,12 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     const submitData = !data?.id
       ? formData
       : {
-        ...getChangedIssuefields(formData, dirtyFields as { [key: string]: boolean | undefined }),
-        project_id: getValues<"project_id">("project_id"),
-        id: data.id,
-        description_html: formData.description_html ?? "<p></p>",
-        type_id: getValues<"type_id">("type_id"),
-      };
+          ...getChangedIssuefields(formData, dirtyFields as { [key: string]: boolean | undefined }),
+          project_id: getValues<"project_id">("project_id"),
+          id: data.id,
+          description_html: formData.description_html ?? "<p></p>",
+          type_id: getValues<"type_id">("type_id"),
+        };
 
     // this condition helps to move the issues from draft to project issues
     if (formData.hasOwnProperty("is_draft")) submitData.is_draft = formData.is_draft;
@@ -263,10 +263,10 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
           ...DEFAULT_WORK_ITEM_FORM_VALUES,
           ...(isCreateMoreToggleEnabled
             ? {
-              ...currentValues,
-              name: "",
-              description_html: data?.description_html ?? "<p></p>",
-            }
+                ...currentValues,
+                name: "",
+                description_html: data?.description_html ?? "<p></p>",
+              }
             : {}),
           project_id: getValues<"project_id">("project_id"),
           type_id: getValues<"type_id">("type_id"),
@@ -411,7 +411,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
               className={cn(
                 "space-y-3 bg-surface-1 pb-4",
                 activeAdditionalPropertiesLength > 4 &&
-                "vertical-scrollbar scrollbar-sm max-h-[45vh] overflow-hidden overflow-y-auto"
+                  "vertical-scrollbar scrollbar-sm max-h-[45vh] overflow-hidden overflow-y-auto"
               )}
             >
               <div className="px-5">
@@ -473,7 +473,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                       // eslint-disable-next-line jsx-a11y/prefer-tag-over-role
                       role="button"
                     >
-                      <ToggleSwitch value={isCreateMoreToggleEnabled} onChange={() => { }} size="sm" />
+                      <ToggleSwitch value={isCreateMoreToggleEnabled} onChange={() => {}} size="sm" />
                       <span className="text-caption-sm-regular">{t("create_more")}</span>
                     </div>
                   )}

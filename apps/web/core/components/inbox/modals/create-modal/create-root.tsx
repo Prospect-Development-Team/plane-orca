@@ -230,7 +230,7 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
               role="button"
               tabIndex={getIndex("create_more")}
             >
-              <ToggleSwitch value={createMore} onChange={() => { }} size="sm" />
+              <ToggleSwitch value={createMore} onChange={() => {}} size="sm" />
               <span className="text-11">{t("create_more")}</span>
             </div>
             <div className="flex items-center gap-3">

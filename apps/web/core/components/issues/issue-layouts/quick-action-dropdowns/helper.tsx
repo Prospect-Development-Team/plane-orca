@@ -301,7 +301,7 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
       key: "copy-submenu",
       title: t("common.actions.copy_details") || "Copy details",
       icon: CopyIcon,
-      action: () => { },
+      action: () => {},
       nestedMenuItems: [
         {
           key: "copy-title",
