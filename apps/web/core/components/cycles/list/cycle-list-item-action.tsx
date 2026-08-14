@@ -216,7 +216,6 @@ export const CycleListItemAction = observer(function CycleListItemAction(props: 
           <span className="text-11 text-tertiary">{cycleDetails.total_issues}</span>
         </div>
       )}
-      <CycleAdditionalActions cycleId={cycleId} projectId={projectId} />
       {/* Orca Custom: Inline Start Cycle button — visible in the row for draft/upcoming cycles */}
       {showStartButton && (
         <Button
