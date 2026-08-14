@@ -323,6 +323,15 @@
       "description": "Create and customize different types of work items with unique properties"
     },
     "features": {
+      "title": "Features",
+      "description": "Configure features enabled for this project.",
+      "toast": {
+        "loading": "{feature} updating...",
+        "success_title": "Feature updated",
+        "success": "{feature} updated successfully",
+        "error_title": "Error",
+        "error": "Failed to update {feature}"
+      },
       "cycles": {
         "title": "Cycles",
         "short_title": "Cycles",
