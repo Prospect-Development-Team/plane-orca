@@ -6,7 +6,7 @@
 
 import { observer } from "mobx-react";
 // components
-import { BulkOperationsActionBar } from "@/plane-web/components/issues/bulk-operations/action-bar";
+import { BulkOperationsActionBar } from "@/components/issues/bulk-operations/action-bar";
 // hooks
 import { useMultipleSelectStore } from "@/hooks/store/use-multiple-select-store";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
