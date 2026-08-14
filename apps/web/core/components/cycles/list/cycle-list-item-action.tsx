@@ -32,8 +32,6 @@ import { useUserPermissions } from "@/hooks/store/user";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 import { useTimeZoneConverter } from "@/hooks/use-timezone-converter";
-// plane web components
-import { CycleAdditionalActions } from "@/plane-web/components/cycles";
 // local imports
 import { CycleStartStopModal } from "../cycle-start-stop-modal";
 import { CycleQuickActions } from "../quick-actions";
@@ -122,6 +120,7 @@ export const CycleListItemAction = observer(function CycleListItemAction(props: 
     if (!workspaceSlug || !projectId) return;
 
     const addToFavoritePromise = addCycleToFavorites(workspaceSlug?.toString(), projectId.toString(), cycleId).then(
+      // oxlint-disable-next-line promise/always-return
       () => {
         if (!isFavoriteMenuOpen) toggleFavoriteMenu(true);
         return;

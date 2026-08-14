@@ -60,3 +60,15 @@ All changes must follow the upstream compatibility model detailed in [FORK.md](.
 - **Always Prefer Local Execution**: To conserve token usage and maintain developer control, **never** run commands that generate large volumes of terminal output or perform heavy processing (e.g., `pnpm check`, `pnpm check:types`, `pnpm build`, full tests, or django database migrations) directly through the agent context or as background tasks.
 - **Provide Actionable Commands**: Instead, the agent must list the exact commands and instructions clearly for the developer to run locally.
 - **Database Migrations**: When database schema updates are made, always remind the developer of the exact commands needed to generate and apply them. They must run `makemigrations` first to build the files, then `migrate` to apply them (e.g., `docker compose exec api python manage.py makemigrations && docker compose exec api python manage.py migrate` or `python3 apps/api/manage.py makemigrations && python3 apps/api/manage.py migrate`).
+
+## Backend tests (Docker)
+
+The Django/pytest suite for `apps/api` runs in an isolated stack defined by `docker-compose-test.yml` at the repo root.
+
+Prereq (once): `./setup.sh` — generates `apps/api/.env` from `.env.example`.
+
+- Full suite: `docker compose -f docker-compose-test.yml up --build --abort-on-container-exit --exit-code-from api-tests`
+- Subset: `docker compose -f docker-compose-test.yml run --rm api-tests pytest -m unit`
+- Teardown: `docker compose -f docker-compose-test.yml down -v`
+
+See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooting; see `apps/api/tests/TESTING_GUIDE.md` for test conventions and fixtures.
