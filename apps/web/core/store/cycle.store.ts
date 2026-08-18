@@ -89,7 +89,12 @@ export interface ICycleStore {
   ) => Promise<ICycle>;
   deleteCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<void>;
   // manual start / stop (orca)
-  startCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<ICycle>;
+  startCycle: (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { set_in_progress?: boolean }
+  ) => Promise<ICycle>;
   endCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<ICycle>;
   // favorites
   addCycleToFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<any>;
@@ -661,9 +666,22 @@ export class CycleStore implements ICycleStore {
    * @param cycleId
    * @returns updated ICycle
    */
-  startCycle = async (workspaceSlug: string, projectId: string, cycleId: string): Promise<ICycle> => {
+  startCycle = async (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { set_in_progress?: boolean }
+  ): Promise<ICycle> => {
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    return this.updateCycleDetails(workspaceSlug, projectId, cycleId, { start_date: today });
+    const payload: any = { start_date: today };
+    if (options?.set_in_progress) {
+      payload.set_in_progress = true;
+    }
+    const res = await this.updateCycleDetails(workspaceSlug, projectId, cycleId, payload);
+    if (options?.set_in_progress) {
+      this.rootStore.issue.issues.fetchIssues(workspaceSlug, projectId, "PROJECT");
+    }
+    return res;
   };
 
   /**
