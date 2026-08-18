@@ -95,7 +95,12 @@ export interface ICycleStore {
     cycleId: string,
     options?: { set_in_progress?: boolean }
   ) => Promise<ICycle>;
-  endCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<ICycle>;
+  endCycle: (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { mark_completed?: boolean }
+  ) => Promise<ICycle>;
   // favorites
   addCycleToFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<any>;
   removeCycleFromFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<void>;
@@ -692,12 +697,25 @@ export class CycleStore implements ICycleStore {
    * @param cycleId
    * @returns updated ICycle
    */
-  endCycle = async (workspaceSlug: string, projectId: string, cycleId: string): Promise<ICycle> => {
+  endCycle = async (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { mark_completed?: boolean }
+  ): Promise<ICycle> => {
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    return this.updateCycleDetails(workspaceSlug, projectId, cycleId, {
+    const payload: any = {
       end_date: today,
       manually_completed: true,
-    } as any);
+    };
+    if (options?.mark_completed) {
+      payload.mark_completed = true;
+    }
+    const res = await this.updateCycleDetails(workspaceSlug, projectId, cycleId, payload);
+    if (options?.mark_completed) {
+      this.rootStore.issue.issues.fetchIssues(workspaceSlug, projectId, "PROJECT");
+    }
+    return res;
   };
 
   /**

@@ -387,6 +387,21 @@ class CycleViewSet(BaseViewSet):
                         project_id=project_id,
                         state__group__in=["backlog", "unstarted"],
                     ).update(state_id=in_progress_state.id)
+
+            # ORCA CUSTOM FEATURE: Move incomplete issues in cycle to Completed if requested
+            if request.data.get("mark_completed", False):
+                completed_state = (
+                    State.objects.filter(project_id=project_id, group="completed")
+                    .order_by("sequence")
+                    .first()
+                )
+                if completed_state:
+                    Issue.objects.filter(
+                        issue_cycle__cycle_id=pk,
+                        project_id=project_id,
+                    ).exclude(
+                        state__group__in=["completed", "cancelled"]
+                    ).update(state_id=completed_state.id)
             cycle = (
                 self.get_queryset()
                 .filter(workspace__slug=slug, project_id=project_id, pk=pk)
