@@ -33,6 +33,7 @@ type Props = TDropdownProps & {
   canRemoveCycle?: boolean;
   renderByDefault?: boolean;
   currentCycleId?: string;
+  createCycleEnabled?: boolean;
 };
 
 export const CycleDropdown = observer(function CycleDropdown(props: Props) {
@@ -57,6 +58,7 @@ export const CycleDropdown = observer(function CycleDropdown(props: Props) {
     canRemoveCycle = true,
     renderByDefault = true,
     currentCycleId,
+    createCycleEnabled,
   } = props;
   // i18n
   const { t } = useTranslation();
@@ -135,6 +137,7 @@ export const CycleDropdown = observer(function CycleDropdown(props: Props) {
   );
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <ComboDropDown
       as="div"
       ref={dropdownRef}
@@ -154,6 +157,8 @@ export const CycleDropdown = observer(function CycleDropdown(props: Props) {
           referenceElement={referenceElement}
           canRemoveCycle={canRemoveCycle}
           currentCycleId={currentCycleId}
+          createCycleEnabled={createCycleEnabled}
+          onChange={dropdownOnChange}
         />
       )}
     </ComboDropDown>

@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Placement } from "@popperjs/core";
+import { Loader } from "lucide-react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { usePopper } from "react-popper";
@@ -15,10 +16,13 @@ import { Combobox } from "@headlessui/react";
 import { useTranslation } from "@plane/i18n";
 // icon
 import { CheckIcon, CycleGroupIcon, CycleIcon, SearchIcon } from "@plane/propel/icons";
+import { EUserPermissionsLevel } from "@plane/constants";
 import type { TCycleGroups } from "@plane/types";
+import { EUserProjectRoles } from "@plane/types";
 // ui
 // store hooks
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useUserPermissions } from "@/hooks/store/user";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // types
 
@@ -37,20 +41,44 @@ type CycleOptionsProps = {
   isOpen: boolean;
   canRemoveCycle: boolean;
   currentCycleId?: string;
+  createCycleEnabled?: boolean;
+  onChange?: (val: string | null) => void;
 };
 
 export const CycleOptions = observer(function CycleOptions(props: CycleOptionsProps) {
-  const { projectId, isOpen, referenceElement, placement, canRemoveCycle, currentCycleId } = props;
+  const {
+    projectId,
+    isOpen,
+    referenceElement,
+    placement,
+    canRemoveCycle,
+    currentCycleId,
+    createCycleEnabled,
+    onChange,
+  } = props;
   // i18n
   const { t } = useTranslation();
   //state hooks
   const [query, setQuery] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   // store hooks
   const { workspaceSlug } = useParams();
-  const { getProjectCycleIds, fetchAllCycles, getCycleById } = useCycle();
+  const { getProjectCycleIds, fetchAllCycles, getCycleById, createCycle } = useCycle();
+  const { allowPermissions } = useUserPermissions();
   const { isMobile } = usePlatformOS();
+
+  const isPermittedToCreate =
+    projectId && workspaceSlug
+      ? allowPermissions(
+          [EUserProjectRoles.ADMIN, EUserProjectRoles.MEMBER],
+          EUserPermissionsLevel.PROJECT,
+          workspaceSlug.toString(),
+          projectId
+        )
+      : true;
+  const canCreateCycle = createCycleEnabled ?? isPermittedToCreate;
 
   const cycleIds = (getProjectCycleIds(projectId) ?? [])?.filter((cycleId) => {
     if (currentCycleId && currentCycleId === cycleId) return false;
@@ -83,10 +111,61 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
     ],
   });
 
-  const searchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (query !== "" && e.key === "Escape") {
+  /**
+   * @description Handles creating a new cycle inline or selecting an existing cycle with matching name
+   * @param {string} cycleName - Name of the cycle to create or select
+   * @returns {Promise<void>}
+   */
+  const handleAddCycle = async (cycleName: string) => {
+    if (!projectId || !workspaceSlug || submitting) return;
+    const name = cycleName.trim();
+    if (!name) return;
+    setSubmitting(true);
+    try {
+      const existingCycle = cycleIds
+        ?.map((id) => getCycleById(id))
+        .find((c) => c?.name.toLowerCase() === name.toLowerCase());
+
+      let selectedId: string;
+      if (existingCycle) {
+        selectedId = existingCycle.id;
+      } else {
+        const newCycle = await createCycle(workspaceSlug.toString(), projectId, { name });
+        selectedId = newCycle.id;
+      }
+      onChange?.(selectedId);
+      setQuery("");
+    } catch (error) {
+      console.error("Failed to create cycle", error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /**
+   * @description Handles keyboard shortcuts for cycle search input (Escape to clear, Enter to create/select)
+   * @param {React.KeyboardEvent<HTMLInputElement>} e - Input keyboard event
+   * @returns {Promise<void>}
+   */
+  const searchInputKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const q = query.trim();
+    if (q !== "" && e.key === "Escape") {
       e.stopPropagation();
       setQuery("");
+      return;
+    }
+
+    if (
+      q !== "" &&
+      e.key === "Enter" &&
+      !e.nativeEvent.isComposing &&
+      canCreateCycle &&
+      filteredOptions?.length === 0 &&
+      !submitting
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleAddCycle(q);
     }
   };
 
@@ -164,6 +243,29 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
                   )}
                 </Combobox.Option>
               ))
+            ) : submitting ? (
+              <div className="flex items-center justify-center p-2">
+                <Loader className="h-3.5 w-3.5 animate-spin text-tertiary" />
+              </div>
+            ) : canCreateCycle ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!query.trim().length) return;
+                  handleAddCycle(query);
+                }}
+                className={`w-full px-1.5 py-1 text-left text-caption-sm-regular text-secondary ${
+                  query.trim().length ? "cursor-pointer rounded-sm hover:bg-layer-1" : "cursor-default"
+                }`}
+              >
+                {query.trim().length ? (
+                  <>
+                    + Add <span className="text-primary">&quot;{query.trim()}&quot;</span> to cycles
+                  </>
+                ) : (
+                  t("cycle.create.type")
+                )}
+              </button>
             ) : (
               <p className="px-1.5 py-1 text-placeholder italic">{t("common.search.no_matches_found")}</p>
             )
