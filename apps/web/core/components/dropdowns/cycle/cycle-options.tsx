@@ -142,33 +142,6 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
     }
   };
 
-  /**
-   * @description Handles keyboard shortcuts for cycle search input (Escape to clear, Enter to create/select)
-   * @param {React.KeyboardEvent<HTMLInputElement>} e - Input keyboard event
-   * @returns {Promise<void>}
-   */
-  const searchInputKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const q = query.trim();
-    if (q !== "" && e.key === "Escape") {
-      e.stopPropagation();
-      setQuery("");
-      return;
-    }
-
-    if (
-      q !== "" &&
-      e.key === "Enter" &&
-      !e.nativeEvent.isComposing &&
-      canCreateCycle &&
-      filteredOptions?.length === 0 &&
-      !submitting
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      await handleAddCycle(q);
-    }
-  };
-
   const options: DropdownOptions = cycleIds?.map((cycleId) => {
     const cycleDetails = getCycleById(cycleId);
     const cycleStatus = cycleDetails?.status ? (cycleDetails.status.toLocaleLowerCase() as TCycleGroups) : "draft";
@@ -201,6 +174,37 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
   const filteredOptions =
     query === "" ? options : options?.filter((o) => o.query.toLowerCase().includes(query.toLowerCase()));
 
+  const hasExactMatch = options?.some(
+    (o) => o.value !== null && o.query.trim().toLowerCase() === query.trim().toLowerCase()
+  );
+
+  /**
+   * @description Handles keyboard shortcuts for cycle search input (Escape to clear, Enter to create/select)
+   * @param {React.KeyboardEvent<HTMLInputElement>} e - Input keyboard event
+   * @returns {Promise<void>}
+   */
+  const searchInputKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const q = query.trim();
+    if (q !== "" && e.key === "Escape") {
+      e.stopPropagation();
+      setQuery("");
+      return;
+    }
+
+    if (
+      q !== "" &&
+      e.key === "Enter" &&
+      !e.nativeEvent.isComposing &&
+      canCreateCycle &&
+      !hasExactMatch &&
+      !submitting
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleAddCycle(q);
+    }
+  };
+
   return (
     <Combobox.Options className="fixed z-10" static>
       <div
@@ -223,52 +227,48 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
           />
         </div>
         <div className="mt-2 max-h-48 space-y-1 overflow-y-scroll">
-          {filteredOptions ? (
-            filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <Combobox.Option
-                  key={option.value}
-                  value={option.value}
-                  className={({ active, selected }) =>
-                    `flex w-full cursor-pointer items-center justify-between gap-2 truncate rounded-sm px-1 py-1.5 select-none ${
-                      active ? "bg-layer-transparent-hover" : ""
-                    } ${selected ? "text-primary" : "text-secondary"}`
-                  }
-                >
-                  {({ selected }) => (
-                    <>
-                      <span className="flex-grow truncate">{option.content}</span>
-                      {selected && <CheckIcon className="h-3.5 w-3.5 flex-shrink-0" />}
-                    </>
+          {submitting ? (
+            <div className="flex items-center justify-center p-2">
+              <Loader className="h-3.5 w-3.5 animate-spin text-tertiary" />
+            </div>
+          ) : filteredOptions ? (
+            <>
+              {filteredOptions.length > 0
+                ? filteredOptions.map((option) => (
+                    <Combobox.Option
+                      key={option.value}
+                      value={option.value}
+                      className={({ active, selected }) =>
+                        `flex w-full cursor-pointer items-center justify-between gap-2 truncate rounded-sm px-1 py-1.5 select-none ${
+                          active ? "bg-layer-transparent-hover" : ""
+                        } ${selected ? "text-primary" : "text-secondary"}`
+                      }
+                    >
+                      {({ selected }) => (
+                        <>
+                          <span className="flex-grow truncate">{option.content}</span>
+                          {selected && <CheckIcon className="h-3.5 w-3.5 flex-shrink-0" />}
+                        </>
+                      )}
+                    </Combobox.Option>
+                  ))
+                : !canCreateCycle && (
+                    <p className="px-1.5 py-1 text-placeholder italic">{t("common.search.no_matches_found")}</p>
                   )}
-                </Combobox.Option>
-              ))
-            ) : submitting ? (
-              <div className="flex items-center justify-center p-2">
-                <Loader className="h-3.5 w-3.5 animate-spin text-tertiary" />
-              </div>
-            ) : canCreateCycle ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!query.trim().length) return;
-                  handleAddCycle(query);
-                }}
-                className={`w-full px-1.5 py-1 text-left text-caption-sm-regular text-secondary ${
-                  query.trim().length ? "cursor-pointer rounded-sm hover:bg-layer-1" : "cursor-default"
-                }`}
-              >
-                {query.trim().length ? (
-                  <>
-                    + Add <span className="text-primary">&quot;{query.trim()}&quot;</span> to cycles
-                  </>
-                ) : (
-                  t("cycle.create.type")
-                )}
-              </button>
-            ) : (
-              <p className="px-1.5 py-1 text-placeholder italic">{t("common.search.no_matches_found")}</p>
-            )
+
+              {canCreateCycle && query.trim().length > 0 && !hasExactMatch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!query.trim().length) return;
+                    handleAddCycle(query.trim());
+                  }}
+                  className="w-full cursor-pointer rounded-sm px-1.5 py-1 text-left text-secondary hover:bg-layer-1"
+                >
+                  + Add <span className="text-primary">&quot;{query.trim()}&quot;</span> to cycles
+                </button>
+              )}
+            </>
           ) : (
             <p className="px-1.5 py-1 text-placeholder italic">{t("common.loading")}</p>
           )}

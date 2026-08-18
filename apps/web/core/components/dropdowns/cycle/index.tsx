@@ -81,6 +81,9 @@ export const CycleDropdown = observer(function CycleDropdown(props: Props) {
   });
 
   const dropdownOnChange = (val: string | null) => {
+    if (typeof val === "string" && val.startsWith("CREATE_CYCLE:")) {
+      return;
+    }
     onChange(val);
     handleClose();
   };
