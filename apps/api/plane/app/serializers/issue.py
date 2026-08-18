@@ -230,12 +230,17 @@ class IssueCreateSerializer(BaseSerializer):
             except IntegrityError:
                 pass
         else:
-            # ORCA CUSTOM FEATURE: Default to assignees of user's last created issue in project
+            # ORCA CUSTOM FEATURE: Default to assignees of user's last created issue with assignees in project
             last_assignee_ids = []
-            if created_by_id:
+            user_id = created_by_id or (
+                self.context.get("request")
+                and getattr(self.context["request"], "user", None)
+                and getattr(self.context["request"].user, "id", None)
+            )
+            if user_id:
                 last_issue = (
                     Issue.objects.filter(
-                        created_by_id=created_by_id,
+                        created_by_id=user_id,
                         project_id=project_id,
                     )
                     .exclude(pk=issue.pk)
@@ -249,11 +254,13 @@ class IssueCreateSerializer(BaseSerializer):
                         is_active=True,
                     ).values_list("member_id", flat=True)
                     last_assignee_ids = list(
-                        IssueAssignee.objects.filter(
-                            issue=last_issue,
-                            project_id=project_id,
-                            assignee_id__in=valid_member_ids,
-                        ).values_list("assignee_id", flat=True)
+                        dict.fromkeys(
+                            IssueAssignee.objects.filter(
+                                issue=last_issue,
+                                project_id=project_id,
+                                assignee_id__in=valid_member_ids,
+                            ).values_list("assignee_id", flat=True)
+                        )
                     )
 
             if last_assignee_ids:
