@@ -7,7 +7,7 @@
 
 | Branch      | Purpose                                                                                             | Source Branch          | Merge Target       | Environment                       |
 | :---------- | :-------------------------------------------------------------------------------------------------- | :--------------------- | :----------------- | :-------------------------------- |
-| `main`      | **Upstream Mirror**: Tracks unmodified official Plane CE releases.                                  | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
+| `upstream`  | **Upstream Mirror**: Tracks unmodified official Plane CE releases (`master` branch).                | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
 | `stage`     | **Staging/Integration**: Custom features, branding, and configs are integrated here.                | `stage`                | `stage`            | Staging / QA                      |
 | `prod`      | **Production Releases**: Deployed directly to our self-hosted Plane instance for team-internal use. | `stage`                | `prod`             | Production (Internal Self-Hosted) |
 | `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
@@ -20,6 +20,41 @@
 ### 📝 Custom Fork Changelog
 
 All custom changes, new features, and bug fixes are automatically tracked and compiled by Release Please in [CHANGELOG.md](./CHANGELOG.md). Refer to it for the complete release history of this fork.
+
+### ✨ What Makes Plane Orca Different? (Fork Features)
+
+Plane Orca builds on top of official Plane Community Edition with extra features, workflow improvements, and simpler self-hosting:
+
+#### 🔄 Parallel Cycles (Sprints)
+
+- **Run Multiple Active Cycles**: Run more than one cycle at the same time in a single project.
+- **Manual Cycle Controls**: Manually start, pause, complete, or edit active and finished cycles anytime.
+- **Auto-Complete & Transfer**: Automatically finish cycles when their end date arrives, and easily transfer issues between active cycles.
+
+#### 🏷️ Shared Workspace Labels & States
+
+- **Global Workspace Labels**: Create issue labels at the workspace level so all projects share the same labels.
+- **Global Workflow States**: Use standardized issue states (e.g., In Progress, Done) across all team projects.
+
+#### ⚡ Productivity Quick Actions
+
+- **Quick Copy Details**: Right-click or open the issue menu to quickly copy Title, Description, or both.
+- **Form Value Retention**: Keeps what you typed in creation forms even if you toggle "Create More".
+- **Enhanced Bulk Operations**: Select and edit multiple work items faster with clearer multi-value dropdowns.
+
+#### 🛠️ Data Migration Tool
+
+- **Import from Another Plane**: Built-in Python migration tool ([tools/migration](./tools/migration/README.md)) to copy projects, issues, cycles, users, and labels from another Plane instance.
+
+#### 🎨 Clean & Distraction-Free UI
+
+- **Custom Branding**: Cleaned up logos and edition badges.
+- **No Promotional Ads**: Removed telemetry tracking and promotional popups for a faster, distraction-free interface.
+
+#### 🐳 Simple Self-Hosting (Coolify Ready)
+
+- **Low Memory Footprint**: Includes [docker-compose-orca.yml](./docker-compose-orca.yml), pre-configured to run smoothly on small VPS servers (<3GB RAM).
+- **Automated CI/CD**: Seamless deployment to Coolify with auto-versioning and changelog tracking ([CHANGELOG.md](./CHANGELOG.md)).
 
 ### 🐳 Self-Hosted Deployment (docker-compose-orca.yml)
 
@@ -115,6 +150,7 @@ Getting started with Plane is simple. Choose the setup that works best for you:
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Docker               | [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://developers.plane.so/self-hosting/methods/docker-compose)         |
 | Kubernetes           | [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](https://developers.plane.so/self-hosting/methods/kubernetes) |
+| Managed hosting      | [<img alt="Deploy with Zenith" src="https://cdn.zenith.hosting/buttons/deploy-with-zenith.svg" height="40">](https://zenith.hosting/host/plane) |
 
 `Instance admins` can configure instance settings with [God mode](https://developers.plane.so/self-hosting/govern/instance-admin).
 

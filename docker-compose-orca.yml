@@ -8,6 +8,12 @@ services:
     restart: always
     depends_on:
       - api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -21,6 +27,12 @@ services:
     depends_on:
       - api
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/god-mode/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -34,6 +46,12 @@ services:
     depends_on:
       - api
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/spaces/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -83,7 +101,7 @@ services:
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     pull_policy: always
     restart: always
-    exclude_from_hc: true
+    x-exclude_from_hc: true
     command: ./bin/docker-entrypoint-worker.sh
     environment:
       - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
@@ -115,7 +133,7 @@ services:
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     pull_policy: always
     restart: always
-    exclude_from_hc: true
+    x-exclude_from_hc: true
     command: ./bin/docker-entrypoint-beat.sh
     environment:
       - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
@@ -147,7 +165,7 @@ services:
     image: ghcr.io/prospect-development-team/plane-orca/api:${TAG:-stage}
     pull_policy: always
     restart: "no"
-    exclude_from_hc: true
+    x-exclude_from_hc: true
     command: ./bin/docker-entrypoint-migrator.sh
     environment:
       - SECRET_KEY=${SERVICE_HEX_64_DJANGO}
@@ -191,6 +209,12 @@ services:
       - FILE_SIZE_LIMIT=${FILE_SIZE_LIMIT:-5242880}
     depends_on:
       - api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -226,7 +250,7 @@ services:
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -246,6 +270,12 @@ services:
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
@@ -261,6 +291,12 @@ services:
     environment:
       MINIO_ROOT_USER: ${SERVICE_USER_AWS:-access-key}
       MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_AWS:-secret-key}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:

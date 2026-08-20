@@ -35,7 +35,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: write
 
 env:
   REGISTRY: ghcr.io
@@ -114,6 +116,66 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+
+  # ---------------------------------------------------------------------------
+  # PR Labeler & Template Manager (Pull Requests ONLY)
+  # ---------------------------------------------------------------------------
+  labeler:
+    name: Auto Label & Template PR
+    if: github.event_name == 'pull_request' && !startsWith(github.event.pull_request.head.ref, 'release-please--') && github.event.pull_request.head.ref != 'stage' && github.event.pull_request.user.login != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout Base Branch Code
+        uses: actions/checkout@v7
+
+      - name: Update PR Properties
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/labels" \
+            -d '{"name":"stage-pr","color":"bfd4f2","description":"Staging Pull Request"}' || true
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+            -d '{"labels":["stage-pr"]}' || true
+
+          CURRENT_BODY=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | python3 -c "import sys, json; print(json.load(sys.stdin).get('body','') or '')" 2>/dev/null || true)
+
+          if [ -z "$(echo "$CURRENT_BODY" | tr -d '[:space:]')" ] || echo "$CURRENT_BODY" | grep -q "READ THIS BEFORE CREATING YOUR PULL REQUEST"; then
+            if [ -f .github/PULL_REQUEST_TEMPLATE/basic.md ]; then
+              PR_BODY=$(cat .github/PULL_REQUEST_TEMPLATE/basic.md)
+              export PR_BODY PR_NUMBER GH_TOKEN GITHUB_API_URL GITHUB_REPOSITORY
+              python3 << 'PY'
+          import os, json, urllib.request
+
+          url = f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{os.environ['PR_NUMBER']}"
+          token = os.environ['GH_TOKEN']
+          body = os.environ['PR_BODY']
+
+          payload = json.dumps({'body': body}).encode('utf-8')
+          headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'}
+
+          req = urllib.request.Request(url, data=payload, headers=headers, method='PATCH')
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  pass
+          except Exception:
+              pass
+          PY
+            fi
+          fi
 
   ci:
     name: Code Quality Checks (CI)
@@ -409,3 +471,137 @@ jobs:
             echo "| **Branch** | ${branch} |"
             echo "| **Commit** | ${commit_link} |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Maintain Release Candidate PR (Pushes ONLY — Runs in Parallel)
+  # ---------------------------------------------------------------------------
+  promote-rc:
+    name: Ensure Release Candidate PR
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: stage
+          fetch-depth: 0
+
+      - name: Configure Git Credentials
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Skip if post-release sync commit
+        id: sync-guard
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%s HEAD)
+          echo "Latest commit: $COMMIT_MSG"
+          if echo "$COMMIT_MSG" | grep -qE "\[skip ci\]|^orca-chore: sync prod"; then
+            echo "Post-release sync commit detected — skipping RC PR maintenance."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Maintain Release Candidate PR
+        if: steps.sync-guard.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          RELEASE_ASSIGNEE_VAR: ${{ vars.RELEASE_ASSIGNEE }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          TARGET_ASSIGNEE="${RELEASE_ASSIGNEE_VAR:-$ACTOR}"
+          git fetch origin prod || true
+
+          COMMITS_AHEAD=$(git rev-list --count origin/prod..stage)
+          echo "Commits on stage ahead of prod: $COMMITS_AHEAD"
+
+          if [ "$COMMITS_AHEAD" -eq 0 ]; then
+            echo "Stage branch is completely synced with prod. No Release Candidate PR needed."
+            exit 0
+          fi
+
+          VERSION=$(python3 -c "
+          import json
+          for f in ['package.json', 'composer.json', 'app.json']:
+              try:
+                  v = json.load(open(f)).get('version', '')
+                  if v:
+                      print(v)
+                      break
+              except Exception:
+                  pass
+          " 2>/dev/null || true)
+          VERSION="${VERSION:-}"
+          echo "Current package version: $VERSION"
+
+          if [ -n "$VERSION" ]; then
+            PR_TITLE="release: Promote Release Candidate from v${VERSION}"
+          else
+            PR_TITLE="release: Promote Release Candidate"
+          fi
+          REPO_OWNER="${GITHUB_REPOSITORY%%/*}"
+
+          EXISTING_PR_JSON=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls?head=${REPO_OWNER}:stage&base=prod&state=open")
+
+          EXISTING_PR_NUMBER=$(python3 -c "
+          import sys, json
+          try:
+              prs = json.load(sys.stdin)
+              if isinstance(prs, list) and len(prs) > 0:
+                  print(prs[0].get('number', ''))
+          except Exception:
+              pass
+          " <<< "$EXISTING_PR_JSON" 2>/dev/null || true)
+
+          if [ -n "$EXISTING_PR_NUMBER" ] && [ "$EXISTING_PR_NUMBER" != "null" ]; then
+            echo "Existing open Release Candidate PR found (#$EXISTING_PR_NUMBER). Ensuring assignee is set to $TARGET_ASSIGNEE..."
+            curl -sS -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/${EXISTING_PR_NUMBER}/assignees" \
+              -d "{\"assignees\":[\"${TARGET_ASSIGNEE}\"]}" || true
+            exit 0
+          fi
+
+          echo "No open Release Candidate PR found. Automatically creating PR from stage to prod via REST API..."
+
+          if [ -f .github/PULL_REQUEST_TEMPLATE/release_candidate.md ]; then
+            PR_BODY=$(cat .github/PULL_REQUEST_TEMPLATE/release_candidate.md)
+          else
+            PR_BODY="Promote Release Candidate changes from stage to prod."
+          fi
+
+          export PR_TITLE PR_BODY GH_TOKEN GITHUB_API_URL GITHUB_REPOSITORY
+          CREATED_PR_NUMBER=$(python3 -c "
+          import os, sys, json, urllib.request
+
+          url = f\"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}/pulls\"
+          token = os.environ['GH_TOKEN']
+          title = os.environ['PR_TITLE']
+          body = os.environ['PR_BODY']
+
+          payload = json.dumps({'title': title, 'head': 'stage', 'base': 'prod', 'body': body}).encode('utf-8')
+          headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'}
+
+          req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  d = json.loads(resp.read().decode('utf-8'))
+                  print(d.get('number', ''))
+          except Exception as e:
+              sys.stderr.write(f'Error creating PR: {e}\n')
+          " 2>/dev/null || true)
+
+          if [ -n "$CREATED_PR_NUMBER" ] && [ "$CREATED_PR_NUMBER" != "null" ] && [ -n "$TARGET_ASSIGNEE" ]; then
+            echo "Release Candidate PR #$CREATED_PR_NUMBER created. Assigning $TARGET_ASSIGNEE..."
+            curl -sS -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/${CREATED_PR_NUMBER}/assignees" \
+              -d "{\"assignees\":[\"${TARGET_ASSIGNEE}\"]}" || true
+          fi

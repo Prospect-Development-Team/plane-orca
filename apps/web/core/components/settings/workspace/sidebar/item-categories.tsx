@@ -8,7 +8,12 @@ import { observer } from "mobx-react";
 import { usePathname } from "next/navigation";
 import { useParams } from "react-router";
 // plane imports
-import { EUserPermissionsLevel, GROUPED_WORKSPACE_SETTINGS, WORKSPACE_SETTINGS_CATEGORIES } from "@plane/constants";
+import {
+  EUserPermissionsLevel,
+  GROUPED_WORKSPACE_SETTINGS,
+  WORKSPACE_SETTINGS_CATEGORIES,
+  WORKSPACE_SETTINGS_CATEGORY_LABELS,
+} from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { joinUrlPath } from "@plane/utils";
 // components
@@ -39,13 +44,24 @@ export const WorkspaceSettingsSidebarItemCategories = observer(function Workspac
 
         return (
           <div key={category} className="shrink-0 py-3 first:pt-0 last:pb-0">
-            <div className="p-2 text-caption-md-medium text-tertiary capitalize">{t(category)}</div>
+            <div className="p-2 text-caption-md-medium text-tertiary capitalize">
+              {t(WORKSPACE_SETTINGS_CATEGORY_LABELS[category])}
+            </div>
             <div className="flex flex-col">
               {accessibleItems.map((item) => {
                 const isItemActive =
                   item.href === "/settings"
                     ? pathname === `/${workspaceSlug}${item.href}/`
                     : new RegExp(`^/${workspaceSlug}${item.href}/`).test(pathname);
+
+                const itemLabel = t(item.i18n_label);
+                const displayLabel =
+                  !itemLabel || itemLabel === item.i18n_label
+                    ? item.key
+                        .split("-")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ")
+                    : itemLabel;
 
                 return (
                   <SettingsSidebarItem
@@ -54,7 +70,7 @@ export const WorkspaceSettingsSidebarItemCategories = observer(function Workspac
                     href={joinUrlPath(workspaceSlug ?? "", item.href)}
                     isActive={isItemActive}
                     icon={WORKSPACE_SETTINGS_ICONS[item.key]}
-                    label={t(item.i18n_label)}
+                    label={displayLabel}
                   />
                 );
               })}

@@ -102,14 +102,14 @@ To maintain a clean and maintainable codebase:
 
 To maintain upstream compatibility while shipping custom features, all developers must follow this unified lifecycle:
 
-| Lifecycle Phase          | Action / Trigger             | Source ➡️ Target                            | Automation & Behavior                                                                                                 |
-| :----------------------- | :--------------------------- | :------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------- |
-| **1. Feature Dev**       | Developer codes locally      | `stage` ➡️ `feature/*`                      | Code custom overrides/features. Maintain Conventional Commit prefixes.                                                |
-| **2. Staging PR**        | Open PR targeting Staging    | `feature/*` ➡️ `stage`                      | Auto-labeled `stage-pr` and gets the `basic.md` template checklist injected in 5s.                                    |
-| **3. Staging Deploy**    | Merge PR into Staging        | `stage`                                     | Triggers `stage.yml` CI, runs path-based matrix builds for changed folders, and redeploys Staging environment.        |
-| **4. Release Candidate** | Open PR targeting Production | `stage` ➡️ `prod`                           | Auto-labeled `release-candidate`, title set with version name, and gets `release_candidate.md` checklist in 5s.       |
-| **5. Production Deploy** | Merge RC PR into Production  | `prod`                                      | Triggers `prod.yml` to tag/promote GHCR images to `latest` and release version, and redeploys Production environment. |
-| **6. Upstream Sync**     | Pull Upstream CE updates     | `upstream` ➡️ `main` ➡️ `sync/*` ➡️ `stage` | Fetch updates into mirror (`main`), branch off `stage` to resolve conflicts in a `sync/*` branch, and merge back.     |
+| Lifecycle Phase          | Action / Trigger             | Source ➡️ Target                  | Automation & Behavior                                                                                                                                   |
+| :----------------------- | :--------------------------- | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. Feature Dev**       | Developer codes locally      | `stage` ➡️ `feature/*`            | Code custom overrides/features. Maintain Conventional Commit prefixes.                                                                                  |
+| **2. Staging PR**        | Open PR targeting Staging    | `feature/*` ➡️ `stage`            | Auto-labeled `stage-pr` and gets the `basic.md` template checklist injected in 5s.                                                                      |
+| **3. Staging Deploy**    | Merge PR into Staging        | `stage`                           | Triggers `stage.yml` CI, runs path-based matrix builds for changed folders, and redeploys Staging environment.                                          |
+| **4. Release Candidate** | Open PR targeting Production | `stage` ➡️ `prod`                 | Auto-labeled `release-candidate`, title set with version name, and gets `release_candidate.md` checklist in 5s.                                         |
+| **5. Production Deploy** | Merge RC PR into Production  | `prod`                            | Triggers `prod.yml` to tag/promote GHCR images to `latest` and release version, and redeploys Production environment.                                   |
+| **6. Upstream Sync**     | Pull Upstream CE updates     | `upstream` ➡️ `sync/*` ➡️ `stage` | Fetch updates into mirror branch (`upstream` tracking `upstream/master`), branch off `stage` to resolve conflicts in a `sync/*` branch, and merge back. |
 
 ### Automation Details (What is Managed Automatically)
 
@@ -190,11 +190,11 @@ When staging is verified and you are ready to release to production:
 
 To sync new releases from official Plane CE upstream into our fork:
 
-1. Fetch upstream changes into your local mirror:
+1. Fetch upstream changes into your local mirror branch (`upstream`):
    ```bash
-   git checkout main
-   git pull upstream main
-   git push origin main
+   git checkout upstream
+   git pull upstream master
+   git push origin upstream
    ```
 2. Create a temporary sync branch off **`stage`**:
    ```bash
@@ -202,9 +202,9 @@ To sync new releases from official Plane CE upstream into our fork:
    git pull origin stage
    git checkout -b sync/upstream-merge-[date]
    ```
-3. Merge the mirror branch (`main`) into your sync branch:
+3. Merge the mirror branch (`upstream`) into your sync branch:
    ```bash
-   git merge main
+   git merge upstream
    # Resolve any code, asset, or styling conflicts locally
    ```
 4. Verify the build and check-in your fixes, then merge back to **`stage`**:

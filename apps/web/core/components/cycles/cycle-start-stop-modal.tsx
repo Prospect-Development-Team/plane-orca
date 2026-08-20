@@ -21,6 +21,7 @@ import { AlertModalCore } from "@plane/ui";
 import { renderFormattedDate } from "@plane/utils";
 // hooks
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { useTimeZoneConverter } from "@/hooks/use-timezone-converter";
 
 type TMode = "start" | "end";
@@ -55,8 +56,14 @@ export const CycleStartStopModal = observer(function CycleStartStopModal(props: 
   const { isOpen, mode, cycleDetails, workspaceSlug, projectId, handleClose } = props;
   // state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [setInProgress, setSetInProgress] = useState<boolean>(true);
+  const [markCompleted, setMarkCompleted] = useState<boolean>(true);
   // store
   const { startCycle, endCycle } = useCycle();
+  const { getProjectStates } = useProjectState();
+  const projectStates = getProjectStates(projectId);
+  const hasInProgressState = projectStates?.some((s) => s.group === "started");
+  const hasCompletedState = projectStates?.some((s) => s.group === "completed");
   // timezone converter
   const { renderFormattedDateInUserTimezone } = useTimeZoneConverter(projectId);
 
@@ -88,18 +95,24 @@ export const CycleStartStopModal = observer(function CycleStartStopModal(props: 
     setIsSubmitting(true);
     try {
       if (mode === "start") {
-        await startCycle(workspaceSlug, projectId, cycleDetails.id);
+        const willUpdateState = setInProgress && Boolean(hasInProgressState);
+        await startCycle(workspaceSlug, projectId, cycleDetails.id, { set_in_progress: willUpdateState });
         setToast({
           type: TOAST_TYPE.SUCCESS,
           title: "Cycle started",
-          message: `"${cycleDetails.name}" is now active.`,
+          message: willUpdateState
+            ? `"${cycleDetails.name}" is now active and unstarted issues were moved to In Progress.`
+            : `"${cycleDetails.name}" is now active.`,
         });
       } else {
-        await endCycle(workspaceSlug, projectId, cycleDetails.id);
+        const willMarkCompleted = markCompleted && Boolean(hasCompletedState) && incompleteCount > 0;
+        await endCycle(workspaceSlug, projectId, cycleDetails.id, { mark_completed: willMarkCompleted });
         setToast({
           type: TOAST_TYPE.SUCCESS,
           title: "Cycle completed",
-          message: `"${cycleDetails.name}" has been marked as completed.`,
+          message: willMarkCompleted
+            ? `"${cycleDetails.name}" has been marked as completed and incomplete issues were moved to Completed.`
+            : `"${cycleDetails.name}" has been marked as completed.`,
         });
       }
       handleClose();
@@ -121,15 +134,65 @@ export const CycleStartStopModal = observer(function CycleStartStopModal(props: 
         <span className="font-medium break-words text-primary">"{cycleDetails.name}"</span>? {description}
       </p>
 
-      {/* Incomplete items warning — shown only when ending a cycle with unfinished work */}
-      {mode === "end" && incompleteCount > 0 && (
+      {/* Option to move unstarted items to In Progress when starting a cycle */}
+      {mode === "start" && hasInProgressState && (
+        <div className="flex items-start gap-2.5 rounded-md border border-subtle bg-surface-2 p-3">
+          <input
+            type="checkbox"
+            id="set_in_progress"
+            checked={setInProgress}
+            onChange={(e) => setSetInProgress(e.target.checked)}
+            className="focus:ring-primary mt-0.5 h-4 w-4 cursor-pointer rounded border-subtle text-primary"
+          />
+          <label htmlFor="set_in_progress" className="text-xs cursor-pointer select-none">
+            <span className="font-medium text-primary">Move unstarted work items to In Progress</span>
+            <p className="mt-0.5 text-secondary">
+              All backlog and unstarted work items in this cycle will automatically move to the In Progress state.
+            </p>
+          </label>
+        </div>
+      )}
+
+      {/* Warning if project has no In Progress state */}
+      {mode === "start" && !hasInProgressState && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-start gap-2 rounded-md p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <p className="text-13">
+            <span className="font-medium">No "In Progress" state found.</span> Work items in this cycle will remain in
+            their current state when started.
+          </p>
+        </div>
+      )}
+
+      {/* Option to mark incomplete items as Completed when ending a cycle */}
+      {mode === "end" && incompleteCount > 0 && hasCompletedState && (
+        <div className="flex items-start gap-2.5 rounded-md border border-subtle bg-surface-2 p-3">
+          <input
+            type="checkbox"
+            id="mark_completed"
+            checked={markCompleted}
+            onChange={(e) => setMarkCompleted(e.target.checked)}
+            className="focus:ring-primary mt-0.5 h-4 w-4 cursor-pointer rounded border-subtle text-primary"
+          />
+          <label htmlFor="mark_completed" className="text-xs cursor-pointer select-none">
+            <span className="font-medium text-primary">Mark all incomplete work items as Completed</span>
+            <p className="mt-0.5 text-secondary">
+              All {incompleteCount} unfinished work item{incompleteCount !== 1 ? "s" : ""} in this cycle will
+              automatically move to the Completed state.
+            </p>
+          </label>
+        </div>
+      )}
+
+      {/* Warning if ending cycle with incomplete work items when no Completed state exists */}
+      {mode === "end" && incompleteCount > 0 && !hasCompletedState && (
         <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-start gap-2 rounded-md p-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
           <p className="text-13">
             <span className="font-medium">
-              {incompleteCount} work item{incompleteCount !== 1 ? "s" : ""}
+              {incompleteCount} work item{incompleteCount !== 1 ? "s" : ""} not yet done.
             </span>{" "}
-            {incompleteCount !== 1 ? "are" : "is"} not yet done. Ending this cycle will not complete them automatically.
+            No "Completed" state found in this project to update them automatically.
           </p>
         </div>
       )}

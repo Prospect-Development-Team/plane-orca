@@ -51,6 +51,7 @@ from plane.db.models import (
     User,
     Project,
     UserRecentVisit,
+    State,
 )
 from plane.utils.analytics_plot import burndown_plot
 from plane.bgtasks.recent_visited_task import recent_visited_task
@@ -372,6 +373,35 @@ class CycleViewSet(BaseViewSet):
         serializer = CycleWriteSerializer(cycle, data=request.data, partial=True, context={"project_id": project_id})
         if serializer.is_valid():
             serializer.save()
+
+            # ORCA CUSTOM FEATURE: Move unstarted issues in cycle to In Progress if requested
+            if request.data.get("set_in_progress", False):
+                in_progress_state = (
+                    State.objects.filter(project_id=project_id, group="started")
+                    .order_by("sequence")
+                    .first()
+                )
+                if in_progress_state:
+                    Issue.objects.filter(
+                        issue_cycle__cycle_id=pk,
+                        project_id=project_id,
+                        state__group__in=["backlog", "unstarted"],
+                    ).update(state_id=in_progress_state.id)
+
+            # ORCA CUSTOM FEATURE: Move incomplete issues in cycle to Completed if requested
+            if request.data.get("mark_completed", False):
+                completed_state = (
+                    State.objects.filter(project_id=project_id, group="completed")
+                    .order_by("sequence")
+                    .first()
+                )
+                if completed_state:
+                    Issue.objects.filter(
+                        issue_cycle__cycle_id=pk,
+                        project_id=project_id,
+                    ).exclude(
+                        state__group__in=["completed", "cancelled"]
+                    ).update(state_id=completed_state.id)
             cycle = (
                 self.get_queryset()
                 .filter(workspace__slug=slug, project_id=project_id, pk=pk)
@@ -884,7 +914,7 @@ class CycleAnalyticsEndpoint(BaseAPIView):
                             assignees__avatar_asset__isnull=False,
                             then=Concat(
                                 Value("/api/assets/v2/static/"),
-                                "assignees__avatar_asset",  # Assuming avatar_asset has an id or relevant field
+                                Cast("assignees__avatar_asset", models.CharField()),
                                 Value("/"),
                             ),
                         ),
@@ -981,7 +1011,7 @@ class CycleAnalyticsEndpoint(BaseAPIView):
                             assignees__avatar_asset__isnull=False,
                             then=Concat(
                                 Value("/api/assets/v2/static/"),
-                                "assignees__avatar_asset",  # Assuming avatar_asset has an id or relevant field
+                                Cast("assignees__avatar_asset", models.CharField()),
                                 Value("/"),
                             ),
                         ),

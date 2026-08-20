@@ -69,7 +69,7 @@ class IssueSerializer(BaseSerializer):
 
     class Meta:
         model = Issue
-        read_only_fields = ["id", "workspace", "project", "updated_by", "updated_at"]
+        read_only_fields = ["id", "workspace", "project", "updated_by", "updated_at", "completed_at"]
         exclude = ["description_json", "description_stripped"]
 
     def validate(self, data):
@@ -188,27 +188,57 @@ class IssueSerializer(BaseSerializer):
             except IntegrityError:
                 pass
         else:
-            try:
-                # Then assign it to default assignee, if it is a valid assignee
-                if (
-                    default_assignee_id is not None
-                    and ProjectMember.objects.filter(
-                        member_id=default_assignee_id,
+            # ORCA CUSTOM FEATURE: Default to assignees of user's last created issue with assignees in project
+            last_assignee_ids = []
+            user_id = created_by_id or (
+                self.context.get("request")
+                and getattr(self.context["request"], "user", None)
+                and getattr(self.context["request"].user, "id", None)
+            )
+            if user_id:
+                last_issue = (
+                    Issue.objects.filter(
+                        created_by_id=user_id,
+                        project_id=project_id,
+                    )
+                    .exclude(pk=issue.pk)
+                    .order_by("-created_at")
+                    .first()
+                )
+                if last_issue:
+                    valid_member_ids = ProjectMember.objects.filter(
                         project_id=project_id,
                         role__gte=15,
                         is_active=True,
-                    ).exists()
-                ):
-                    IssueAssignee.objects.create(
-                        assignee_id=default_assignee_id,
-                        issue=issue,
-                        project_id=project_id,
-                        workspace_id=workspace_id,
-                        created_by_id=created_by_id,
-                        updated_by_id=updated_by_id,
+                    ).values_list("member_id", flat=True)
+                    last_assignee_ids = list(
+                        dict.fromkeys(
+                            IssueAssignee.objects.filter(
+                                issue=last_issue,
+                                project_id=project_id,
+                                assignee_id__in=valid_member_ids,
+                            ).values_list("assignee_id", flat=True)
+                        )
                     )
-            except IntegrityError:
-                pass
+
+            if last_assignee_ids:
+                try:
+                    IssueAssignee.objects.bulk_create(
+                        [
+                            IssueAssignee(
+                                assignee_id=assignee_id,
+                                issue=issue,
+                                project_id=project_id,
+                                workspace_id=workspace_id,
+                                created_by_id=created_by_id,
+                                updated_by_id=updated_by_id,
+                            )
+                            for assignee_id in last_assignee_ids
+                        ],
+                        batch_size=10,
+                    )
+                except IntegrityError:
+                    pass
 
         if labels is not None and len(labels):
             try:
@@ -745,14 +775,12 @@ class IssueCommentSerializer(BaseSerializer):
         exclude = ["comment_stripped", "comment_json"]
 
     def validate(self, data):
-        try:
-            if data.get("comment_html", None) is not None:
-                parsed = html.fromstring(data["comment_html"])
-                parsed_str = html.tostring(parsed, encoding="unicode")
-                data["comment_html"] = parsed_str
-
-        except Exception:
-            raise serializers.ValidationError("Invalid HTML passed")
+        if "comment_html" in data and data["comment_html"]:
+            is_valid, error_msg, sanitized_html = validate_html_content(data["comment_html"])
+            if not is_valid:
+                raise serializers.ValidationError({"comment_html": "HTML content is not valid"})
+            if sanitized_html is not None:
+                data["comment_html"] = sanitized_html
         return data
 
 
@@ -850,6 +878,7 @@ class IssueExpandSerializer(BaseSerializer):
             "updated_by",
             "created_at",
             "updated_at",
+            "completed_at",
         ]
 
 

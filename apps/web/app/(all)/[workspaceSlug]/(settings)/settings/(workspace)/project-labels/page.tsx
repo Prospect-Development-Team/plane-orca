@@ -145,16 +145,30 @@ const ProjectLabelsPage = observer(function ProjectLabelsPage() {
 
   return (
     <SettingsContentWrapper header={<ProjectLabelsWorkspaceSettingsHeader />}>
-      <PageHead title={t("workspace_settings.settings.project_labels.title") || "Workspace Project Labels"} />
+      <PageHead
+        title={
+          !t("workspace_settings.settings.project_labels.title") ||
+          t("workspace_settings.settings.project_labels.title") === "workspace_settings.settings.project_labels.title"
+            ? "Workspace Project Labels"
+            : t("workspace_settings.settings.project_labels.title")
+        }
+      />
       <div className="flex max-w-4xl flex-col gap-6 p-6">
         <div className="flex items-center justify-between border-b border-subtle pb-6">
           <div>
             <h3 className="text-xl text-custom-text-100 font-medium">
-              {t("workspace_settings.settings.project_labels.heading") || "Project Labels"}
+              {!t("workspace_settings.settings.project_labels.heading") ||
+              t("workspace_settings.settings.project_labels.heading") ===
+                "workspace_settings.settings.project_labels.heading"
+                ? "Project Labels"
+                : t("workspace_settings.settings.project_labels.heading")}
             </h3>
             <p className="text-sm text-custom-text-300">
-              {t("workspace_settings.settings.project_labels.description") ||
-                "Create and manage workspace-level project labels for categorization and board/list grouping."}
+              {!t("workspace_settings.settings.project_labels.description") ||
+              t("workspace_settings.settings.project_labels.description") ===
+                "workspace_settings.settings.project_labels.description"
+                ? "Create and manage workspace-level project labels for categorization and board/list grouping."
+                : t("workspace_settings.settings.project_labels.description")}
             </p>
           </div>
           <ToggleSwitch value={store.settings?.is_enabled || false} onChange={handleToggle} size="lg" />

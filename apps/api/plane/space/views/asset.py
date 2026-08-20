@@ -42,9 +42,10 @@ class EntityAssetEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # get the asset id
+        # get the asset id — scope to project to prevent cross-project IDOR
         asset = FileAsset.objects.get(
             workspace_id=deploy_board.workspace_id,
+            project_id=deploy_board.project_id,
             pk=pk,
             entity_type__in=[
                 FileAsset.EntityTypeContext.ISSUE_DESCRIPTION,
@@ -59,10 +60,19 @@ class EntityAssetEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get the presigned URL
+        # Get the presigned URL.
+        # Force attachment disposition for script-capable MIME types to prevent
+        # same-origin XSS when Spaces assets are served on the application's origin.
         storage = S3Storage(request=request)
+        asset_mime_type = (asset.attributes.get("type") or "").split(";")[0].strip().lower()
+        disposition = (
+            "attachment" if asset_mime_type in settings.SCRIPT_CAPABLE_MIME_TYPES else "inline"
+        )
         # Generate a presigned URL to share an S3 object
-        signed_url = storage.generate_presigned_url(object_name=asset.asset.name)
+        signed_url = storage.generate_presigned_url(
+            object_name=asset.asset.name,
+            disposition=disposition,
+        )
         # Redirect to the signed URL
         return HttpResponseRedirect(signed_url)
 
@@ -76,9 +86,20 @@ class EntityAssetEndpoint(BaseAPIView):
         # Get the asset
         name = sanitize_filename(request.data.get("name")) or "unnamed"
         type = request.data.get("type", "image/jpeg")
-        size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
+        try:
+            size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid size.", "status": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         entity_type = request.data.get("entity_type", "")
         entity_identifier = request.data.get("entity_identifier")
+
+        # Clamp the client-provided size to [1, FILE_SIZE_LIMIT] so the signed
+        # upload policy cannot exceed the instance limit and always carries a
+        # valid content-length-range bound
+        size_limit = max(1, min(size, settings.FILE_SIZE_LIMIT))
 
         # Check if the entity type is allowed
         if entity_type not in FileAsset.EntityTypeContext.values:
@@ -109,9 +130,9 @@ class EntityAssetEndpoint(BaseAPIView):
 
         # Create a File Asset
         asset = FileAsset.objects.create(
-            attributes={"name": name, "type": type, "size": size},
+            attributes={"name": name, "type": type, "size": size_limit},
             asset=asset_key,
-            size=size,
+            size=size_limit,
             workspace=deploy_board.workspace,
             created_by=request.user,
             entity_type=entity_type,
@@ -122,7 +143,7 @@ class EntityAssetEndpoint(BaseAPIView):
         # Get the presigned URL
         storage = S3Storage(request=request)
         # Generate a presigned URL to share an S3 object
-        presigned_url = storage.generate_presigned_post(object_name=asset_key, file_type=type, file_size=size)
+        presigned_url = storage.generate_presigned_post(object_name=asset_key, file_type=type, file_size=size_limit)
         # Return the presigned URL
         return Response(
             {
@@ -140,8 +161,8 @@ class EntityAssetEndpoint(BaseAPIView):
         if not deploy_board:
             return Response({"error": "Project is not published"}, status=status.HTTP_404_NOT_FOUND)
 
-        # get the asset id
-        asset = FileAsset.objects.get(id=pk, workspace=deploy_board.workspace)
+        # get the asset id — scope to project to prevent cross-project IDOR
+        asset = FileAsset.objects.get(id=pk, workspace=deploy_board.workspace, project_id=deploy_board.project_id)
         # get the storage metadata
         asset.is_uploaded = True
         # get the storage metadata
@@ -180,8 +201,8 @@ class AssetRestoreEndpoint(BaseAPIView):
         if not deploy_board:
             return Response({"error": "Project is not published"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get the asset
-        asset = FileAsset.all_objects.get(id=pk, workspace=deploy_board.workspace)
+        # Get the asset — scope to project to prevent cross-project IDOR
+        asset = FileAsset.all_objects.get(id=pk, workspace=deploy_board.workspace, project_id=deploy_board.project_id)
         asset.is_deleted = False
         asset.deleted_at = None
         asset.save(update_fields=["is_deleted", "deleted_at"])
