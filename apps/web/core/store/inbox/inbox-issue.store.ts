@@ -137,8 +137,9 @@ export class InboxIssueStore implements IInboxIssueStore {
         const updatedIssue = { ...this.issue, ...inboxIssue.issue };
         this.store.issue.issues.addIssue([updatedIssue]);
       }
-    } catch {
+    } catch (error) {
       runInAction(() => set(this, "status", previousData.status));
+      throw error;
     }
   };
 
@@ -170,12 +171,13 @@ export class InboxIssueStore implements IInboxIssueStore {
           );
         }
       });
-    } catch {
+    } catch (error) {
       runInAction(() => {
         set(this, "status", previousData.status);
         set(this, "duplicate_to", previousData.duplicate_to);
         set(this, "duplicate_issue_detail", previousData.duplicate_issue_detail);
       });
+      throw error;
     }
   };
 
@@ -208,11 +210,12 @@ export class InboxIssueStore implements IInboxIssueStore {
           set(this.store.projectRoot.project.projectMap, [this.projectId, "intake_count"], currentCount + 1);
         }
       });
-    } catch {
+    } catch (error) {
       runInAction(() => {
         set(this, "status", previousData.status);
         set(this, "snoozed_till", previousData.snoozed_till);
       });
+      throw error;
     }
   };
 

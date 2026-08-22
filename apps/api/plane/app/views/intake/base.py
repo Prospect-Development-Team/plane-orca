@@ -336,13 +336,16 @@ class IntakeIssueViewSet(BaseViewSet):
         skip_activity = request.data.pop("skip_activity", False)
         is_description_update = request.data.get("description_html") is not None
 
-        intake_id = Intake.objects.filter(workspace__slug=slug, project_id=project_id).first()
-        intake_issue = IntakeIssue.objects.get(
+        intake_issue = IntakeIssue.objects.filter(
             issue_id=pk,
             workspace__slug=slug,
             project_id=project_id,
-            intake_id=intake_id,
-        )
+        ).first()
+
+        if not intake_issue:
+            return Response({"error": "Intake issue not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        intake_id = intake_issue.intake
 
         project_member = ProjectMember.objects.filter(
             workspace__slug=slug,
@@ -497,7 +500,7 @@ class IntakeIssueViewSet(BaseViewSet):
                     Value([], output_field=ArrayField(UUIDField())),
                 ),
             )
-            .get(intake_id=intake_id.id, issue_id=pk, project_id=project_id)
+            .get(issue_id=pk, project_id=project_id)
         )
         serializer = IntakeIssueDetailSerializer(intake_issue).data
         return Response(serializer, status=status.HTTP_200_OK)
@@ -551,19 +554,21 @@ class IntakeIssueViewSet(BaseViewSet):
 
     @allow_permission(allowed_roles=[ROLE.ADMIN], creator=True, model=Issue)
     def destroy(self, request, slug, project_id, pk):
-        intake_id = Intake.objects.filter(workspace__slug=slug, project_id=project_id).first()
-        intake_issue = IntakeIssue.objects.get(
+        intake_issue = IntakeIssue.objects.filter(
             issue_id=pk,
             workspace__slug=slug,
             project_id=project_id,
-            intake_id=intake_id,
-        )
+        ).first()
+
+        if not intake_issue:
+            return Response({"error": "Intake issue not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Check the issue status
         if intake_issue.status in [-2, -1, 0, 2]:
             # Delete the issue also
             issue = Issue.objects.filter(workspace__slug=slug, project_id=project_id, pk=pk).first()
-            issue.delete()
+            if issue:
+                issue.delete()
 
         intake_issue.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
