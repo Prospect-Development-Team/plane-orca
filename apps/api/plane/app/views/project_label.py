@@ -48,18 +48,17 @@ def sync_workspace_labels_to_project(workspace, project):
     from plane.db.models import Label
     workspace_labels = Label.objects.filter(workspace=workspace, project__isnull=True)
     
-    # Delete existing project-level labels to clean up
-    Label.objects.filter(project=project).delete()
-    
-    # First pass: create labels
+    # First pass: create or update project-level labels matching workspace labels non-destructively
     created_labels = {}
     for wl in workspace_labels:
-        lbl = Label.objects.create(
-            name=wl.name,
-            color=wl.color,
-            description=wl.description or "",
+        lbl, _ = Label.objects.update_or_create(
             project=project,
-            workspace=workspace,
+            name=wl.name,
+            defaults={
+                "color": wl.color,
+                "description": wl.description or "",
+                "workspace": workspace,
+            }
         )
         created_labels[wl.name] = lbl
         
@@ -136,7 +135,7 @@ class ProjectLabelPropertyEndpoint(BaseAPIView):
         project = Project.objects.get(id=project_id, workspace__slug=slug)
         prop, _ = ProjectLabelProperty.objects.get_or_create(
             project=project,
-            defaults={"is_enabled": True}
+            defaults={"is_enabled": False}
         )
         serializer = ProjectLabelPropertySerializer(prop)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -145,7 +144,7 @@ class ProjectLabelPropertyEndpoint(BaseAPIView):
         project = Project.objects.get(id=project_id, workspace__slug=slug)
         prop, _ = ProjectLabelProperty.objects.get_or_create(
             project=project,
-            defaults={"is_enabled": True}
+            defaults={"is_enabled": False}
         )
         was_enabled = prop.is_enabled
         serializer = ProjectLabelPropertySerializer(prop, data=request.data, partial=True)

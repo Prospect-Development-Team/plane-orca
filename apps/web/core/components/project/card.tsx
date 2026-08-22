@@ -81,7 +81,7 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
 
   const labelSettings = labelStore.settings;
   const labelProperty = labelStore.projectProperties[project.id];
-  const isLabelEnabled = labelSettings?.is_enabled && (labelProperty ? labelProperty.is_enabled : true);
+  const isLabelEnabled = labelSettings?.is_enabled && (labelProperty ? labelProperty.is_enabled : false);
 
   const assignedMappings = labelStore.projectLabelAssignments[project.id] || [];
   const assignedLabels = assignedMappings.map((m: any) => m.label_detail).filter(Boolean);

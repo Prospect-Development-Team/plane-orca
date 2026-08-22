@@ -101,10 +101,10 @@ export const ProjectFeaturesList = observer(function ProjectFeaturesList(props: 
   }, [workspaceSlug, projectId, customStore, labelStore]);
 
   const projectProperty = customStore.projectProperties[projectId];
-  const isProjectStateEnabled = projectProperty ? projectProperty.is_enabled : true;
+  const isProjectStateEnabled = projectProperty ? projectProperty.is_enabled : false;
 
   const projectLabelProperty = labelStore.projectProperties[projectId];
-  const isProjectLabelEnabled = projectLabelProperty ? projectLabelProperty.is_enabled : true;
+  const isProjectLabelEnabled = projectLabelProperty ? projectLabelProperty.is_enabled : false;
 
   const handleSubmit = async (featureKey: string, property: string, value: boolean) => {
     if (!workspaceSlug || !projectId) return;

@@ -534,6 +534,15 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
     // perform an API call
     const response = await this.issueService.createIssue(workspaceSlug, projectId, data);
 
+    // If new labels were returned that are not in the label store, fetch project labels
+    if (response?.label_ids?.length && this.rootIssueStore?.rootStore?.label) {
+      const labelMap = this.rootIssueStore.rootStore.label.labelMap;
+      const hasMissingLabel = response.label_ids.some((labelId: string) => !labelMap?.[labelId]);
+      if (hasMissingLabel) {
+        await this.rootIssueStore.rootStore.label.fetchProjectLabels(workspaceSlug, projectId);
+      }
+    }
+
     // add Issue to Store
     this.addIssue(response, shouldUpdateList);
 
@@ -576,7 +585,18 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
       } as TIssue);
 
       // call API to update the issue
-      await this.issueService.patchIssue(workspaceSlug, projectId, issueId, data);
+      const response = await this.issueService.patchIssue(workspaceSlug, projectId, issueId, data);
+
+      if (response) {
+        if (response.label_ids?.length && this.rootIssueStore?.rootStore?.label) {
+          const labelMap = this.rootIssueStore.rootStore.label.labelMap;
+          const hasMissingLabel = response.label_ids.some((labelId: string) => !labelMap?.[labelId]);
+          if (hasMissingLabel) {
+            await this.rootIssueStore.rootStore.label.fetchProjectLabels(workspaceSlug, projectId);
+          }
+        }
+        this.rootIssueStore.issues.updateIssue(issueId, response);
+      }
 
       // call fetch Parent Stats
       this.fetchParentStats(workspaceSlug, projectId);

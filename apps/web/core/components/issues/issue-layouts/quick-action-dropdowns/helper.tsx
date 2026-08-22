@@ -12,7 +12,7 @@ import { LinkIcon, CopyIcon, NewTabIcon, EditIcon, ArchiveIcon, TrashIcon } from
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EIssuesStoreType, TIssue } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
-import { copyUrlToClipboard, generateWorkItemLink, copyTextToClipboard, sanitizeHTML } from "@plane/utils";
+import { copyUrlToClipboard, generateWorkItemLink, copyTextToClipboard, htmlToPlainText } from "@plane/utils";
 import { IssueService } from "@/services/issue";
 import { createCopyMenuWithDuplication } from "./copy-menu-helper";
 
@@ -129,13 +129,13 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
   };
 
   /**
-   * @description Orca Custom Helper: Resolves the issue description HTML.
+   * @description Orca Custom Helper: Resolves the issue description HTML and converts it to clean formatted plain text.
    * If the description is not loaded in the lightweight issue object, fetches the full issue from the API.
-   * @returns {Promise<string>} Sanitized plain-text or HTML description.
+   * @returns {Promise<string>} Clean plain text description with preserved line breaks.
    */
   const getOrFetchDescription = async (): Promise<string> => {
     if (issue?.description_html !== undefined) {
-      return sanitizeHTML(issue.description_html);
+      return htmlToPlainText(issue.description_html);
     }
     if (!workspaceSlug || !issue?.project_id || !issue?.id) {
       return "";
@@ -143,7 +143,7 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     try {
       const issueService = new IssueService();
       const fullIssue = await issueService.retrieve(workspaceSlug, issue.project_id, issue.id);
-      return sanitizeHTML(fullIssue?.description_html || "");
+      return htmlToPlainText(fullIssue?.description_html || "");
     } catch (e) {
       console.error("Failed to fetch issue description", e);
       return "";
@@ -185,10 +185,13 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
   };
 
   /**
-   * @description Orca Custom Handler: Copies both issue title and description, separated by newlines, to the clipboard.
+   * @description Orca Custom Handler: Smart copy for issue details.
+   * Copies title on the first line and formatted description on following lines to clipboard,
+   * or just the title if no description exists.
+   * @returns {Promise<void>}
    */
-  const handleCopyIssueTitleAndDescription = async () => {
-    const titleText = issue?.name || "";
+  const handleCopyIssueDetails = async () => {
+    const titleText = (issue?.name || "").trim();
     const descriptionText = await getOrFetchDescription();
     const textToCopy = descriptionText ? `${titleText}\n\n${descriptionText}` : titleText;
     return copyTextToClipboard(textToCopy).then(() =>
@@ -202,6 +205,11 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     );
   };
 
+  /**
+   * @description Orca Custom Handler: Copies both issue title and description, separated by newlines, to the clipboard.
+   */
+  const handleCopyIssueTitleAndDescription = handleCopyIssueDetails;
+
   return {
     workItemLink,
     handleCopyIssueLink,
@@ -210,6 +218,7 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     handleCopyIssueTitle,
     handleCopyIssueDescription,
     handleCopyIssueTitleAndDescription,
+    handleCopyIssueDetails,
   };
 };
 
@@ -282,51 +291,16 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
   });
 
   /**
-   * @description Orca Custom Menu Item: Returns a copy details submenu.
-   * If the description is already loaded and empty, directly returns the Copy Title action.
-   * Otherwise, returns a submenu with choices for Copy Title, Copy Description, and Copy Title & Description.
+   * @description Orca Custom Menu Item: Returns a smart copy details menu item.
+   * Copies the title and description (if available) directly to the clipboard without a dropdown submenu.
    */
-  const createCopySubmenuItem = (): TContextMenuItem => {
-    const isLoadedAndEmpty = issue?.description_html !== undefined && sanitizeHTML(issue.description_html) === "";
-    if (isLoadedAndEmpty) {
-      return {
-        key: "copy-title",
-        title: t("common.actions.copy_title") || "Copy title",
-        icon: CopyIcon,
-        action: actionHandlers.handleCopyIssueTitle,
-        shouldRender: true,
-      };
-    }
-    return {
-      key: "copy-submenu",
-      title: t("common.actions.copy_details") || "Copy details",
-      icon: CopyIcon,
-      action: () => {},
-      nestedMenuItems: [
-        {
-          key: "copy-title",
-          title: t("common.actions.copy_title") || "Copy title",
-          icon: CopyIcon,
-          action: actionHandlers.handleCopyIssueTitle,
-          shouldRender: true,
-        },
-        {
-          key: "copy-description",
-          title: t("common.actions.copy_description") || "Copy description",
-          icon: CopyIcon,
-          action: actionHandlers.handleCopyIssueDescription,
-          shouldRender: true,
-        },
-        {
-          key: "copy-title-and-description",
-          title: t("common.actions.copy_title_and_description") || "Copy title & description",
-          icon: CopyIcon,
-          action: actionHandlers.handleCopyIssueTitleAndDescription,
-          shouldRender: true,
-        },
-      ],
-    };
-  };
+  const createCopyDetailsMenuItem = (): TContextMenuItem => ({
+    key: "copy-details",
+    title: t("common.actions.copy_details") || "Copy details",
+    icon: CopyIcon,
+    action: actionHandlers.handleCopyIssueDetails,
+    shouldRender: true,
+  });
 
   const createRemoveFromCycleMenuItem = (): TContextMenuItem => ({
     key: "remove-from-cycle",
@@ -380,7 +354,8 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     createCopyMenuItem,
     createOpenInNewTabMenuItem,
     createCopyLinkMenuItem,
-    createCopySubmenuItem,
+    createCopyDetailsMenuItem,
+    createCopySubmenuItem: createCopyDetailsMenuItem,
     createRemoveFromCycleMenuItem,
     createRemoveFromModuleMenuItem,
     createArchiveMenuItem,
@@ -399,7 +374,7 @@ export const useProjectIssueMenuItems = (props: MenuItemFactoryProps): TContextM
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
-      factory.createCopySubmenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -415,7 +390,7 @@ export const useWorkItemDetailMenuItems = (props: MenuItemFactoryProps): TContex
       factory.createCopyMenuItem(props.workspaceSlug),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
-      factory.createCopySubmenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createRestoreMenuItem(),
       factory.createDeleteMenuItem(),
@@ -434,7 +409,7 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
-      factory.createCopySubmenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -460,7 +435,7 @@ export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMen
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
-      factory.createCopySubmenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createRemoveFromCycleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
@@ -488,7 +463,7 @@ export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMe
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
-      factory.createCopySubmenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createRemoveFromModuleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
@@ -506,7 +481,7 @@ export const useArchivedIssueMenuItems = (props: MenuItemFactoryProps): TContext
       factory.createRestoreMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
-      factory.createCopySubmenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createDeleteMenuItem(),
     ],
     [factory]
