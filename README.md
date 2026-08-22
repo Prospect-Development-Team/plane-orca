@@ -3,20 +3,6 @@
 > [!IMPORTANT]
 > **Plane Orca** is our customized team fork of upstream [Plane Community Edition](https://github.com/makeplane/plane).
 
-### 🚀 Fork Workflow & Git Strategy
-
-| Branch      | Purpose                                                                                             | Source Branch          | Merge Target       | Environment                       |
-| :---------- | :-------------------------------------------------------------------------------------------------- | :--------------------- | :----------------- | :-------------------------------- |
-| `upstream`  | **Upstream Mirror**: Tracks unmodified official Plane CE releases (`master` branch).                | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
-| `stage`     | **Staging/Integration**: Custom features, branding, and configs are integrated here.                | `stage`                | `stage`            | Staging / QA                      |
-| `prod`      | **Production Releases**: Deployed directly to our self-hosted Plane instance for team-internal use. | `stage`                | `prod`             | Production (Internal Self-Hosted) |
-| `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
-
-- **Development Rules**: Please read and follow [FORK.md](./FORK.md) and [AGENTS.md](./AGENTS.md) closely.
-  - Use the conventional commit format: `feat(orca):`, `fix(orca):`, `style(orca-ui):`, `style(orca):`, `docs(orca):`, `chore(orca):`, or `refactor(orca):`.
-  - Do not edit database migration files or drop core tables directly.
-  - All files must adhere to standard monorepo styling rules and preserve existing license headers.
-
 ### ✨ Fork Features
 
 Plane Orca enhances official Plane Community Edition with extended workflow capabilities, automations, and streamlined self-hosting:
@@ -34,53 +20,44 @@ Plane Orca enhances official Plane Community Edition with extended workflow capa
 | **🎨 UI & Privacy**    | Clean & Distraction-Free UI        | Removed telemetry trackers and promotional ads for a faster, clutter-free workspace.                                                                     |
 | **🐳 Self-Hosting**    | VPS & Coolify Ready                | Optimized low-memory footprint stack ([docker-compose-orca.yml](./docker-compose-orca.yml)) running smoothly under 3GB RAM.                              |
 
-### 🐳 Self-Hosted Deployment (docker-compose-orca.yml)
+### 🐳 Self-Hosted Deployment (`docker-compose-orca.yml`)
 
-To deploy **Plane Orca** on your VPS via Coolify, we recommend using [docker-compose-orca.yml](./docker-compose-orca.yml).
+Plane Orca is pre-configured for self-hosting on low-spec VPS instances (<3GB RAM) and PaaS platforms like **Coolify** using [docker-compose-orca.yml](./docker-compose-orca.yml).
 
-#### 1. Why use `docker-compose-orca.yml`?
+#### ⚡ Quick Start (Coolify)
 
-- **Pre-Built Images**: It references pre-compiled images from GHCR (e.g. `ghcr.io/.../web:stage`) built on GitHub's free Actions runners. Running a compile/build step directly on a 4GB VPS (which Next.js frontends require) will crash the server due to high compile-time RAM usage.
-- **Resource Constraints**: It defines strict memory limits (`mem_limit`) for all containers, ensuring the entire 11-service stack stays safe and stable under 3GB of runtime memory.
+1. **Create Application**: Add a new **Docker Compose** resource in Coolify pointing to this repository (`stage` or `prod` branch) with file path `docker-compose-orca.yml`.
+2. **Assign Domain**: In **Domains**, route your URL (e.g. `https://plane.example.com`) to the **`proxy`** service on container port `80`.
+3. **Configure Secrets & Deploy**: Add required secrets in **Environment Variables** and click **Deploy**.
 
-#### 2. Environment Variables & Automated Routing
+> [!TIP]
+> **Generate Secret Keys**: Run `openssl rand -hex 32` in your terminal to generate 64-character secret keys.
 
-Most configuration variables are fully automated or pre-filled:
+#### ⚙️ Configuration Variables
 
-- **Automatic Domain Injection**: The compose file binds `DOMAIN_NAME` to `${SERVICE_FQDN_PROXY:-localhost}`. Coolify automatically generates this variable based on the domain you assign to the `proxy` service in the dashboard UI.
-- **Required Secrets**: `SECRET_KEY` and `LIVE_SERVER_SECRET_KEY` must be manually generated and configured in Coolify's **Environment Variables** tab.
-  - **Linux / macOS (Terminal)**:
-    ```bash
-    openssl rand -hex 32
-    ```
-  - **Windows (PowerShell)**:
-    ```powershell
-    -join ((0..63) | ForEach-Object { Get-Random -InputObject ('a'..'z' + 'A'..'Z' + '0'..'9') })
-    ```
+| Variable                                      | Required | Description                     | Default                                    |
+| :-------------------------------------------- | :------: | :------------------------------ | :----------------------------------------- |
+| `SECRET_KEY`                                  | **Yes**  | Django session cryptography key | _User-provided (64-char hex)_              |
+| `LIVE_SERVER_SECRET_KEY`                      | **Yes**  | WebSocket encryption key        | _User-provided (64-char hex)_              |
+| `DOMAIN_NAME`                                 |    No    | Public application domain       | Auto-resolved from `${SERVICE_FQDN_PROXY}` |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD`         |    No    | PostgreSQL credentials          | `plane` / `plane123`                       |
+| `POSTGRES_DB`                                 |    No    | PostgreSQL database schema      | `plane`                                    |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` |    No    | MinIO / S3 storage credentials  | `plane-access-key` / `plane-secret-key`    |
+| `AWS_S3_BUCKET_NAME`                          |    No    | File upload storage bucket      | `uploads`                                  |
 
-##### Customizable Variables
+### 🚀 Fork Workflow & Git Strategy
 
-For convenience, database credentials, RabbitMQ settings, and local MinIO storage keys are **pre-filled with safe defaults**. If you wish to customize them (e.g. changing database credentials or pointing to an external S3 store like Cloudflare R2), define them in Coolify's **Environment Variables** tab:
+| Branch      | Purpose                                                                                             | Source Branch          | Merge Target       | Environment                       |
+| :---------- | :-------------------------------------------------------------------------------------------------- | :--------------------- | :----------------- | :-------------------------------- |
+| `upstream`  | **Upstream Mirror**: Tracks unmodified official Plane CE releases (`master` branch).                | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
+| `stage`     | **Staging/Integration**: Custom features, branding, and configs are integrated here.                | `stage`                | `stage`            | Staging / QA                      |
+| `prod`      | **Production Releases**: Deployed directly to our self-hosted Plane instance for team-internal use. | `stage`                | `prod`             | Production (Internal Self-Hosted) |
+| `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
 
-| Variable                 | Description                               | Default                       |
-| ------------------------ | ----------------------------------------- | ----------------------------- |
-| `SECRET_KEY`             | Secure session cryptography key (django). | _User-provided (64-char key)_ |
-| `LIVE_SERVER_SECRET_KEY` | Websockets server encryption key.         | _User-provided (64-char key)_ |
-| `POSTGRES_USER`          | PostgreSQL database user.                 | `plane`                       |
-| `POSTGRES_PASSWORD`      | PostgreSQL database password.             | `plane123`                    |
-| `POSTGRES_DB`            | PostgreSQL database schema name.          | `plane`                       |
-| `RABBITMQ_USER`          | RabbitMQ connection user.                 | `plane`                       |
-| `RABBITMQ_PASSWORD`      | RabbitMQ connection password.             | `plane123`                    |
-| `AWS_ACCESS_KEY_ID`      | Storage access key.                       | `plane-access-key`            |
-| `AWS_SECRET_ACCESS_KEY`  | Storage secret key.                       | `plane-secret-key`            |
-| `AWS_S3_BUCKET_NAME`     | Storage bucket name.                      | `uploads`                     |
-
-#### 3. Coolify-Specific Deployment Steps
-
-1. Create a new **Docker Compose** application resource in Coolify.
-2. Select your repository, branch (`stage` or `prod`), and specify the file path as `docker-compose-orca.yml`.
-3. Go to **Settings** -> **Domains** in Coolify, assign your domain (e.g., `https://plane.yourdomain.com`), and select the target service as `proxy` on port `80`.
-4. **Proxy Note**: To avoid port collisions on the host, `docker-compose-orca.yml` binds the proxy container's HTTP port to a non-standard port (`8000` by default). Do not bind host ports `80` or `443` manually in the compose file; Coolify's Traefik/Caddy proxy automatically routes the external domain traffic directly to the `proxy` service on container port `80`.
+- **Development Rules**: Please read and follow [FORK.md](./FORK.md) and [AGENTS.md](./AGENTS.md) closely.
+  - Use the conventional commit format: `feat(orca):`, `fix(orca):`, `style(orca-ui):`, `style(orca):`, `docs(orca):`, `chore(orca):`, or `refactor(orca):`.
+  - Do not edit database migration files or drop core tables directly.
+  - All files must adhere to standard monorepo styling rules and preserve existing license headers.
 
 ---
 
