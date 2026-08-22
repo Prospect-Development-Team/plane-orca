@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.4.0-plane.1.4.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.3.0-plane.1.4.1...v1.4.0-plane.1.4.1) (2026-08-22)
+
+
+### ✨ Features
+
+* **orca:** add automated conventional commit label tagging based on issue title prefixes ([ceaba4d](https://github.com/Prospect-Development-Team/plane-orca/commit/ceaba4d804e9f0c55ac2d4746919c022a39bb032))
+
+
+### 🐛 Bug Fixes
+
+* **orca:** ensure soft-deleted labels are excluded from issue and draft queries and update serializer validation to use UUIDField ([b920dfb](https://github.com/Prospect-Development-Team/plane-orca/commit/b920dfb80196f66c425a017b0c0bdb2e59e98ccc))
+* **orca:** improve intake issue error handling, fallback state resolution, and store exception propagation ([b2834e8](https://github.com/Prospect-Development-Team/plane-orca/commit/b2834e810736d55794969863f3c5053be3f8dcd7))
+
+
+### 📝 Documentation
+
+* **orca:** add conventional commits auto-labeling documentation and update quick copy details description ([52a561d](https://github.com/Prospect-Development-Team/plane-orca/commit/52a561d917c43f427ab3b7d152b027387f0f7cd2))
+* **orca:** convert feature list in README.md to a table for improved readability ([b54705f](https://github.com/Prospect-Development-Team/plane-orca/commit/b54705fc4c84249a8abf899732bd08400c2dae3c))
+* **orca:** streamline and condense README deployment and workflow documentation ([3aa9554](https://github.com/Prospect-Development-Team/plane-orca/commit/3aa955485dc9f1e7a366f0acd0442340926e812b))
+
+
+### ♻️ Refactoring
+
+* **orca:** default project features to disabled and implement workspace-level sync for new projects ([3ef3e18](https://github.com/Prospect-Development-Team/plane-orca/commit/3ef3e187e625e0d0825d25c877cc562d20d28c79))
+* **orca:** replace sanitizeHTML with htmlToPlainText for Copy Details formatted issue description ([3be52b4](https://github.com/Prospect-Development-Team/plane-orca/commit/3be52b4e06e031d699ef2fd59e6f867a6b85a223))
+* **orca:** simplify issue copy functionality by replacing the details submenu with a single smart copy action ([ca69f53](https://github.com/Prospect-Development-Team/plane-orca/commit/ca69f5380b14889445442e6bbb1ea90f16b8ad59))
+
+
+### ⚙️ Continuous Integration
+
+* **orca:** add versioned image tagging and update GitHub releases with container artifact details ([c66f3cb](https://github.com/Prospect-Development-Team/plane-orca/commit/c66f3cb3b06dd841c977567b569da0c29f6be21e))
+* **orca:** disable concurrency cancellation in stage and prod workflows ([1e7e5f8](https://github.com/Prospect-Development-Team/plane-orca/commit/1e7e5f85de3ef66f87faa6d62bd12c10733076c8))
+* **orca:** remove unused React Doctor and i18n sync check GitHub workflows ([502d2b7](https://github.com/Prospect-Development-Team/plane-orca/commit/502d2b79d75ef5720320836ee2dccd92cceba013))
+
 ## [1.3.0-plane.1.4.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.2.0-plane.1.4.1...v1.3.0-plane.1.4.1) (2026-08-20)
 
 
