@@ -12,7 +12,7 @@ import { LinkIcon, CopyIcon, NewTabIcon, EditIcon, ArchiveIcon, TrashIcon } from
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EIssuesStoreType, TIssue } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
-import { copyUrlToClipboard, generateWorkItemLink, copyTextToClipboard, sanitizeHTML } from "@plane/utils";
+import { copyUrlToClipboard, generateWorkItemLink, copyTextToClipboard, htmlToPlainText } from "@plane/utils";
 import { IssueService } from "@/services/issue";
 import { createCopyMenuWithDuplication } from "./copy-menu-helper";
 
@@ -129,13 +129,13 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
   };
 
   /**
-   * @description Orca Custom Helper: Resolves the issue description HTML.
+   * @description Orca Custom Helper: Resolves the issue description HTML and converts it to clean formatted plain text.
    * If the description is not loaded in the lightweight issue object, fetches the full issue from the API.
-   * @returns {Promise<string>} Sanitized plain-text or HTML description.
+   * @returns {Promise<string>} Clean plain text description with preserved line breaks.
    */
   const getOrFetchDescription = async (): Promise<string> => {
     if (issue?.description_html !== undefined) {
-      return sanitizeHTML(issue.description_html);
+      return htmlToPlainText(issue.description_html);
     }
     if (!workspaceSlug || !issue?.project_id || !issue?.id) {
       return "";
@@ -143,7 +143,7 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
     try {
       const issueService = new IssueService();
       const fullIssue = await issueService.retrieve(workspaceSlug, issue.project_id, issue.id);
-      return sanitizeHTML(fullIssue?.description_html || "");
+      return htmlToPlainText(fullIssue?.description_html || "");
     } catch (e) {
       console.error("Failed to fetch issue description", e);
       return "";
@@ -186,12 +186,12 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
 
   /**
    * @description Orca Custom Handler: Smart copy for issue details.
-   * Copies both title and description (if available) formatted to the clipboard,
+   * Copies title on the first line and formatted description on following lines to clipboard,
    * or just the title if no description exists.
    * @returns {Promise<void>}
    */
   const handleCopyIssueDetails = async () => {
-    const titleText = issue?.name || "";
+    const titleText = (issue?.name || "").trim();
     const descriptionText = await getOrFetchDescription();
     const textToCopy = descriptionText ? `${titleText}\n\n${descriptionText}` : titleText;
     return copyTextToClipboard(textToCopy).then(() =>
