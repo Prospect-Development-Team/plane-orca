@@ -73,9 +73,27 @@ jobs:
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage
             docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest
             docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:${{ env.VERSION }}
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:stage ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:v${{ env.VERSION }}
             docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:latest
             docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:${{ env.VERSION }}
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${app}:v${{ env.VERSION }}
           done
+
+      - name: Update GitHub Releases with Official Container Artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CLEAN_VER="${{ env.VERSION }}"
+          CLEAN_VER="${CLEAN_VER#v}"
+          TAG="v${CLEAN_VER}"
+          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          EXISTING_NOTES=$(gh release view "$TAG" --json body --jq '.body' 2>/dev/null || true)
+          if [ -n "$EXISTING_NOTES" ] && [[ "$EXISTING_NOTES" != *"Production Container Artifacts"* ]]; then
+            HEADER=$(printf "### 🐳 Production Container Artifacts\n- **Web App**: \`%s/web:v%s\`\n- **Admin Panel**: \`%s/admin:v%s\`\n- **API Backend**: \`%s/api:v%s\`\n- **Space**: \`%s/space:v%s\`\n- **Live WebSockets**: \`%s/live:v%s\`\n- **Proxy Gateway**: \`%s/proxy:v%s\`\n- **Pull Commands**:\n\`\`\`bash\ndocker pull %s/web:v%s\ndocker pull %s/admin:v%s\ndocker pull %s/api:v%s\ndocker pull %s/space:v%s\ndocker pull %s/live:v%s\ndocker pull %s/proxy:v%s\n\`\`\`" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER" "$IMAGE_BASE" "$CLEAN_VER")
+            COMBINED_NOTES="${HEADER}"$'\n\n---\n\n'"${EXISTING_NOTES}"
+            gh release edit "$TAG" --notes "$COMBINED_NOTES" || true
+          fi
 
   deploy:
     name: Deploy to Production (Coolify)
