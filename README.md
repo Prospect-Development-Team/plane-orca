@@ -38,7 +38,7 @@ Plane Orca builds on top of official Plane Community Edition with extra features
 
 #### ⚡ Productivity Quick Actions
 
-- **Quick Copy Details**: Right-click or open the issue menu to quickly copy Title, Description, or both.
+- **Quick Copy Details**: Right-click or open the issue menu to copy work item details (title and description) in one smart action.
 - **Form Value Retention**: Keeps what you typed in creation forms even if you toggle "Create More".
 - **Enhanced Bulk Operations**: Select and edit multiple work items faster with clearer multi-value dropdowns.
 
@@ -150,7 +150,7 @@ Getting started with Plane is simple. Choose the setup that works best for you:
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Docker               | [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://developers.plane.so/self-hosting/methods/docker-compose)         |
 | Kubernetes           | [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](https://developers.plane.so/self-hosting/methods/kubernetes) |
-| Managed hosting      | [<img alt="Deploy with Zenith" src="https://cdn.zenith.hosting/buttons/deploy-with-zenith.svg" height="40">](https://zenith.hosting/host/plane) |
+| Managed hosting      | [<img alt="Deploy with Zenith" src="https://cdn.zenith.hosting/buttons/deploy-with-zenith.svg" height="40">](https://zenith.hosting/host/plane)                                         |
 
 `Instance admins` can configure instance settings with [God mode](https://developers.plane.so/self-hosting/govern/instance-admin).
 
