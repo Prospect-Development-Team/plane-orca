@@ -95,7 +95,7 @@ function LabelsSettingsPage() {
 
   const projectProperty = projectId ? labelStore.projectProperties[projectId] : undefined;
   const isWorkspaceLabelsEnabled = labelStore.settings?.is_enabled || false;
-  const isProjectUsingWorkspaceLabels = projectProperty ? projectProperty.is_enabled : true;
+  const isProjectUsingWorkspaceLabels = projectProperty ? projectProperty.is_enabled : false;
 
   const isLocalEditDisabled = isWorkspaceLabelsEnabled && isProjectUsingWorkspaceLabels;
 

@@ -115,7 +115,8 @@ export const ProjectCardList = observer(function ProjectCardList(props: TProject
     });
 
     filteredProjectIds.forEach((pId) => {
-      const assignments = labelStore.projectLabelAssignments[pId] || [];
+      const isProjectLabelEnabled = labelStore.settings?.is_enabled && labelStore.projectProperties[pId]?.is_enabled;
+      const assignments = isProjectLabelEnabled ? labelStore.projectLabelAssignments[pId] || [] : [];
       const labelIds = assignments.map((a: any) => a.label);
       if (labelIds.length === 0) {
         grouped["no-label"].push(pId);

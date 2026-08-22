@@ -70,7 +70,7 @@ function StatesSettingsPage({ params }: Route.ComponentProps) {
     setIsSubmitting(true);
     try {
       const currentProp = customStore.projectProperties[projectId];
-      const nextValue = currentProp ? !currentProp.is_enabled : false;
+      const nextValue = currentProp ? !currentProp.is_enabled : true;
       await customStore.updateProjectProperty(workspaceSlug, projectId, {
         is_enabled: nextValue,
       });
@@ -153,7 +153,7 @@ function StatesSettingsPage({ params }: Route.ComponentProps) {
 
   const projectProperty = customStore.projectProperties[projectId];
   const isWorkspaceStatesEnabled = customStore.settings?.is_enabled || false;
-  const isProjectUsingWorkspaceStates = projectProperty ? projectProperty.is_enabled : true;
+  const isProjectUsingWorkspaceStates = projectProperty ? projectProperty.is_enabled : false;
 
   // If the workspace-level setting is enabled AND this project is using workspace states, local states edit is disabled
   const isLocalEditDisabled = isWorkspaceStatesEnabled && isProjectUsingWorkspaceStates;

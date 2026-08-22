@@ -190,7 +190,7 @@ class ProjectStatePropertyEndpoint(BaseAPIView):
         default_state = ProjectState.objects.filter(workspace__slug=slug, default=True).first()
         prop, _ = ProjectStateProperty.objects.get_or_create(
             project=project,
-            defaults={"state": default_state, "is_enabled": True}
+            defaults={"state": default_state, "is_enabled": False}
         )
         serializer = ProjectStatePropertySerializer(prop)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -200,7 +200,7 @@ class ProjectStatePropertyEndpoint(BaseAPIView):
         default_state = ProjectState.objects.filter(workspace__slug=slug, default=True).first()
         prop, _ = ProjectStateProperty.objects.get_or_create(
             project=project,
-            defaults={"state": default_state, "is_enabled": True}
+            defaults={"state": default_state, "is_enabled": False}
         )
         was_enabled = prop.is_enabled
         serializer = ProjectStatePropertySerializer(prop, data=request.data, partial=True)
