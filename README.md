@@ -36,9 +36,16 @@ Plane Orca builds on top of official Plane Community Edition with extra features
 - **Global Workspace Labels**: Create issue labels at the workspace level so all projects share the same labels.
 - **Global Workflow States**: Use standardized issue states (e.g., In Progress, Done) across all team projects.
 
+#### 🏷️ Conventional Commits Auto-Labeling
+
+- **Automated Work Item Labeling**: Automatically assigns conventional commit labels (e.g. `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`) to work items based on title prefixes (e.g. `feat: user profile` or `fix(auth): token expiry`).
+- **Toggleable in Project Settings**: Configurable per project under **Project Settings &rarr; Automations** (default is OFF).
+- **Retroactive Backfill**: Automatically scans and labels existing unlabeled work items matching conventional commit prefixes when activated.
+- **Automatic Label & Color Creation**: Automatically creates the project label with tailored semantic color palettes if it does not already exist.
+
 #### ⚡ Productivity Quick Actions
 
-- **Quick Copy Details**: Right-click or open the issue menu to copy work item details (title and description) in one smart action.
+- **Quick Copy Details**: Right-click or open the issue menu to copy work item details (title and description) in one smart action with clean single-spaced description formatting.
 - **Form Value Retention**: Keeps what you typed in creation forms even if you toggle "Create More".
 - **Enhanced Bulk Operations**: Select and edit multiple work items faster with clearer multi-value dropdowns.
 
