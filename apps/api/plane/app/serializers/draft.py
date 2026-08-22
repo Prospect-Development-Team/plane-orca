@@ -39,7 +39,7 @@ class DraftIssueCreateSerializer(BaseSerializer):
         source="parent", queryset=Issue.objects.all(), required=False, allow_null=True
     )
     label_ids = serializers.ListField(
-        child=serializers.PrimaryKeyRelatedField(queryset=Label.objects.all()),
+        child=serializers.UUIDField(),
         write_only=True,
         required=False,
     )
@@ -100,10 +100,9 @@ class DraftIssueCreateSerializer(BaseSerializer):
             ).values_list("member_id", flat=True)
 
         # Validate labels are from project
-        if attrs.get("label_ids"):
-            label_ids = [label.id for label in attrs["label_ids"]]
+        if "label_ids" in attrs and attrs.get("label_ids") is not None:
             attrs["label_ids"] = list(
-                Label.objects.filter(project_id=self.context.get("project_id"), id__in=label_ids).values_list(
+                Label.objects.filter(project_id=self.context.get("project_id"), id__in=attrs["label_ids"]).values_list(
                     "id", flat=True
                 )
             )

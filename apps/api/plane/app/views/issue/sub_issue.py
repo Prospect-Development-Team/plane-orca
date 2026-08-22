@@ -87,7 +87,7 @@ class SubIssuesEndpoint(BaseAPIView):
             .annotate(
                 label_ids=Coalesce(
                     Subquery(
-                        IssueLabel.objects.filter(issue_id=OuterRef("id"), deleted_at__isnull=True)
+                        IssueLabel.objects.filter(issue_id=OuterRef("id"), deleted_at__isnull=True, label__deleted_at__isnull=True)
                         .order_by()
                         .values("issue_id")
                         .annotate(arr=ArrayAgg("label_id", distinct=True))
