@@ -17,51 +17,22 @@
   - Do not edit database migration files or drop core tables directly.
   - All files must adhere to standard monorepo styling rules and preserve existing license headers.
 
-### 📝 Custom Fork Changelog
+### ✨ Fork Features
 
-All custom changes, new features, and bug fixes are automatically tracked and compiled by Release Please in [CHANGELOG.md](./CHANGELOG.md). Refer to it for the complete release history of this fork.
+Plane Orca enhances official Plane Community Edition with extended workflow capabilities, automations, and streamlined self-hosting:
 
-### ✨ What Makes Plane Orca Different? (Fork Features)
-
-Plane Orca builds on top of official Plane Community Edition with extra features, workflow improvements, and simpler self-hosting:
-
-#### 🔄 Parallel Cycles (Sprints)
-
-- **Run Multiple Active Cycles**: Run more than one cycle at the same time in a single project.
-- **Manual Cycle Controls**: Manually start, pause, complete, or edit active and finished cycles anytime.
-- **Auto-Complete & Transfer**: Automatically finish cycles when their end date arrives, and easily transfer issues between active cycles.
-
-#### 🏷️ Shared Workspace Labels & States
-
-- **Global Workspace Labels**: Create issue labels at the workspace level so all projects share the same labels.
-- **Global Workflow States**: Use standardized issue states (e.g., In Progress, Done) across all team projects.
-
-#### 🏷️ Conventional Commits Auto-Labeling
-
-- **Automated Work Item Labeling**: Automatically assigns conventional commit labels (e.g. `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`) to work items based on title prefixes (e.g. `feat: user profile` or `fix(auth): token expiry`).
-- **Toggleable in Project Settings**: Configurable per project under **Project Settings &rarr; Automations** (default is OFF).
-- **Retroactive Backfill**: Automatically scans and labels existing unlabeled work items matching conventional commit prefixes when activated.
-- **Automatic Label & Color Creation**: Automatically creates the project label with tailored semantic color palettes if it does not already exist.
-
-#### ⚡ Productivity Quick Actions
-
-- **Quick Copy Details**: Right-click or open the issue menu to copy work item details (title and description) in one smart action with clean single-spaced description formatting.
-- **Form Value Retention**: Keeps what you typed in creation forms even if you toggle "Create More".
-- **Enhanced Bulk Operations**: Select and edit multiple work items faster with clearer multi-value dropdowns.
-
-#### 🛠️ Data Migration Tool
-
-- **Import from Another Plane**: Built-in Python migration tool ([tools/migration](./tools/migration/README.md)) to copy projects, issues, cycles, users, and labels from another Plane instance.
-
-#### 🎨 Clean & Distraction-Free UI
-
-- **Custom Branding**: Cleaned up logos and edition badges.
-- **No Promotional Ads**: Removed telemetry tracking and promotional popups for a faster, distraction-free interface.
-
-#### 🐳 Simple Self-Hosting (Coolify Ready)
-
-- **Low Memory Footprint**: Includes [docker-compose-orca.yml](./docker-compose-orca.yml), pre-configured to run smoothly on small VPS servers (<3GB RAM).
-- **Automated CI/CD**: Seamless deployment to Coolify with auto-versioning and changelog tracking ([CHANGELOG.md](./CHANGELOG.md)).
+| Category               | Feature                            | Description                                                                                                                                              |
+| :--------------------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **🔄 Parallel Cycles** | Multi-Active Cycles                | Run multiple active cycles simultaneously in a single project with manual start, pause, and complete controls.                                           |
+|                        | Auto-Complete & Transfer           | Automatically finish cycles on their end date and easily transfer unfinished work items between cycles.                                                  |
+| **🏷️ Global Taxonomy** | Shared Workspace Labels & States   | Create and maintain standardized issue states and labels at the workspace level across all team projects.                                                |
+| **⚡ Automations**     | Conventional Commits Auto-Labeling | Automatically assigns conventional labels (`feat`, `fix`, `docs`, `refactor`, `chore`, etc.) based on title prefixes, with on-activation backfill.       |
+| **🚀 Productivity**    | Quick Copy Details                 | Copy work item title and clean, single-spaced formatted description from context menus in one action.                                                    |
+|                        | Form Value Retention               | Preserves user input across creation forms when using "Create More".                                                                                     |
+|                        | Enhanced Bulk Operations           | Multi-select and update work item properties with clear, streamlined multi-value dropdowns.                                                              |
+| **🛠️ Data Migration**  | Plane-to-Plane Migration Tool      | Built-in CLI migration utility ([tools/migration](./tools/migration/README.md)) to migrate issues, cycles, labels, and projects between Plane instances. |
+| **🎨 UI & Privacy**    | Clean & Distraction-Free UI        | Removed telemetry trackers and promotional ads for a faster, clutter-free workspace.                                                                     |
+| **🐳 Self-Hosting**    | VPS & Coolify Ready                | Optimized low-memory footprint stack ([docker-compose-orca.yml](./docker-compose-orca.yml)) running smoothly under 3GB RAM.                              |
 
 ### 🐳 Self-Hosted Deployment (docker-compose-orca.yml)
 
