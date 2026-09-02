@@ -1,0 +1,99 @@
+# =============================================================================
+# Upstream Sync: Automated Mirroring & PR to Stage
+# =============================================================================
+#
+# When:
+#   • Runs daily on schedule at 00:00 UTC.
+#   • Can be manually triggered via workflow_dispatch.
+#
+# What happens:
+#   • Fetches the latest master branch from upstream (makeplane/plane).
+#   • Updates the local mirror branch (origin/upstream).
+#   • Checks whether upstream has new commits compared to the stage branch.
+#   • If an open PR (upstream -> stage) already exists, it is automatically
+#     refreshed with the latest commits.
+#   • If no PR exists, creates a new PR from upstream into stage to notify the team.
+#
+# Notes on CI triggers:
+#   • By default, GITHUB_TOKEN creates PRs without triggering downstream CI
+#     workflows (like stage.yml) to prevent recursive loops.
+#   • If you want stage.yml to run automatically on this PR, set a repository
+#     secret named SYNC_TOKEN with a Personal Access Token (repo scope).
+# =============================================================================
+
+name: Sync Upstream to Stage
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync Upstream Master to Stage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream master
+        run: |
+          if git remote | grep -q "^upstream$"; then
+            git remote set-url upstream https://github.com/makeplane/plane.git
+          else
+            git remote add upstream https://github.com/makeplane/plane.git
+          fi
+          git fetch upstream master
+
+      - name: Update origin/upstream branch
+        run: |
+          echo "Updating origin/upstream with latest commits from upstream/master..."
+          git push origin upstream/master:refs/heads/upstream --force-with-lease
+
+      - name: Check differences and manage PR to stage
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin stage
+
+          # Count commits that upstream/master has which stage does not
+          NEW_COMMITS=$(git rev-list --count origin/stage..upstream/master)
+          echo "New upstream commits not yet in stage: $NEW_COMMITS"
+
+          if [ "$NEW_COMMITS" -eq 0 ]; then
+            echo "Stage is already up to date with upstream master. Nothing to do."
+            exit 0
+          fi
+
+          REPO="${{ github.repository }}"
+
+          # Check if an open PR from upstream to stage already exists
+          EXISTING_PR=$(gh pr list --repo "$REPO" --base stage --head upstream --state open --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
+            echo "PR #$EXISTING_PR from upstream to stage is already open."
+            echo "Pushing new commits to upstream automatically refreshed the PR."
+          else
+            echo "Creating a new PR from upstream into stage..."
+            PR_BODY=$(printf "### Automated Upstream Sync\n\nAutomated sync detected **%s** new commit(s) from \`makeplane/plane:master\`.\n\n#### Upstream Details:\n- **Upstream Repository**: https://github.com/makeplane/plane\n- **Source Branch**: \`upstream\` (tracking \`makeplane/plane:master\`)\n- **Target Branch**: \`stage\`\n\n#### Next Steps:\n1. Review the commits and resolve any merge conflicts if indicated.\n2. Verify changes on Staging before merging into \`stage\`.\n" "$NEW_COMMITS")
+
+            gh pr create \
+              --repo "$REPO" \
+              --base stage \
+              --head upstream \
+              --title "chore(orca): sync upstream master into stage ($NEW_COMMITS new commits)" \
+              --body "$PR_BODY"
+          fi
