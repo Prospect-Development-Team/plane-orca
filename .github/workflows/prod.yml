@@ -32,7 +32,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -44,7 +45,7 @@ jobs:
     if: "${{ contains(github.event.head_commit.message, 'chore(prod): release') }}"
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Lowercase Image Name
