@@ -56,7 +56,7 @@ export const truncateText = (str: string, length: number) => {
 export const createSimilarString = (str: string) => {
   const shuffled = str
     .split("")
-    .sort(() => Math.random() - 0.5)
+    .toSorted(() => Math.random() - 0.5)
     .join("");
 
   return shuffled;
@@ -131,6 +131,83 @@ export const sanitizeHTML = (htmlString: string) => {
 };
 
 /**
+ * @description Converts HTML / rich-text markup to clean, formatted plain text with proper line breaks for block elements and lists.
+ * @param {string} htmlString HTML content to convert.
+ * @returns {string} Clean plain text representation.
+ */
+export const htmlToPlainText = (htmlString: string): string => {
+  if (!htmlString || !htmlString.trim()) return "";
+
+  // If in browser environment with DOMParser available
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlString, "text/html");
+
+      // Replace <br> with newlines
+      doc.querySelectorAll("br").forEach((br) => {
+        br.replaceWith("\n");
+      });
+
+      // Handle list items & task items
+      doc.querySelectorAll("li").forEach((li) => {
+        const isTask = li.hasAttribute("data-checked") || li.getAttribute("data-type") === "taskItem";
+        if (isTask) {
+          const checked = li.getAttribute("data-checked") === "true";
+          const prefix = checked ? "[x] " : "[ ] ";
+          li.prepend(doc.createTextNode(prefix));
+        }
+      });
+
+      // Append newline to block elements
+      const blockTags = ["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre", "tr"];
+      blockTags.forEach((tag) => {
+        doc.querySelectorAll(tag).forEach((el) => {
+          el.append(doc.createTextNode("\n"));
+        });
+      });
+
+      const text = doc.body.textContent || "";
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .join("\n")
+        .trim();
+    } catch {
+      // Fall through to regex-based parser
+    }
+  }
+
+  // Regex-based conversion
+  let text = htmlString
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<li[^>]*data-checked="true"[^>]*>/gi, "\n[x] ")
+    .replace(/<li[^>]*data-checked="false"[^>]*>/gi, "\n[ ] ")
+    .replace(/<\/(p|div|h1|h2|h3|h4|h5|h6|li|blockquote|pre|tr)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "");
+
+  // Decode HTML entities
+  text = text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#x2F;/gi, "/");
+
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join("\n")
+    .trim();
+};
+
+/**
  * @description: This function will remove all the HTML tags from the string and truncate the string to the specified length
  * @param {string} html
  * @param {number} length
@@ -153,7 +230,7 @@ export const checkEmailValidity = (email: string): boolean => {
   if (!email) return false;
 
   const isEmailValid =
-    /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
+    /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
       email
     );
 
@@ -236,7 +313,7 @@ export const isCommentEmpty = (comment: Content | undefined): boolean => {
 
   // Handle JSONContent[] (array)
   if (Array.isArray(comment)) {
-    return comment.length === 0 || comment.every(isJSONContentEmpty);
+    return comment.every(isJSONContentEmpty);
   }
 
   // Handle JSONContent (object)

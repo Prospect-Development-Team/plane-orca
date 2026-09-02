@@ -30,11 +30,42 @@ from plane.utils.content_validator import (
 class ProjectSerializer(BaseSerializer):
     workspace_detail = WorkspaceLiteSerializer(source="workspace", read_only=True)
     inbox_view = serializers.BooleanField(read_only=True, source="intake_view")
+    # Custom override: fields for managing custom project configuration
+    parallel_cycles = serializers.BooleanField(required=False)
+    cycle_auto_complete = serializers.BooleanField(required=False)
+    auto_conventional_commit_labels = serializers.BooleanField(required=False)
 
     class Meta:
         model = Project
         fields = "__all__"
         read_only_fields = ["workspace", "deleted_at"]
+
+    def to_representation(self, instance):
+        """
+        Custom override:
+        Incorporate `parallel_cycles`, `cycle_auto_complete`, and `auto_conventional_commit_labels` settings in the project representation.
+        """
+        data = super().to_representation(instance)
+        custom_settings = getattr(instance, "custom_settings", None)
+        parallel = (
+            custom_settings.parallel_cycles
+            if custom_settings is not None
+            else instance.cycle_view
+        )
+        auto_complete = (
+            custom_settings.cycle_auto_complete
+            if custom_settings is not None
+            else False
+        )
+        auto_conventional = (
+            custom_settings.auto_conventional_commit_labels
+            if custom_settings is not None
+            else False
+        )
+        data["parallel_cycles"] = parallel
+        data["cycle_auto_complete"] = auto_complete
+        data["auto_conventional_commit_labels"] = auto_conventional
+        return data
 
     def validate_name(self, name):
         project_id = self.instance.id if self.instance else None
@@ -88,13 +119,60 @@ class ProjectSerializer(BaseSerializer):
         return data
 
     def create(self, validated_data):
+        """
+        Custom override:
+        Create the project, pop custom fields from validated data and initialize the project's
+        `ProjectCustomSettings` settings accordingly.
+        """
+        parallel_cycles = validated_data.pop("parallel_cycles", True)
+        cycle_auto_complete = validated_data.pop("cycle_auto_complete", False)
+        auto_conventional_commit_labels = validated_data.pop("auto_conventional_commit_labels", False)
         workspace_id = self.context["workspace_id"]
 
         project = Project.objects.create(**validated_data, workspace_id=workspace_id)
 
         ProjectIdentifier.objects.create(name=project.identifier, project=project, workspace_id=workspace_id)
 
+        from plane.db.models import ProjectCustomSettings
+        ProjectCustomSettings.objects.create(
+            project=project,
+            workspace=project.workspace,
+            parallel_cycles=parallel_cycles,
+            cycle_auto_complete=cycle_auto_complete,
+            auto_conventional_commit_labels=auto_conventional_commit_labels,
+        )
+
         return project
+
+    def update(self, instance, validated_data):
+        """
+        Custom override:
+        Update project details, extract custom settings and apply the changes to
+        `ProjectCustomSettings` for the project.
+        """
+        parallel_cycles = validated_data.pop("parallel_cycles", None)
+        cycle_auto_complete = validated_data.pop("cycle_auto_complete", None)
+        auto_conventional_commit_labels = validated_data.pop("auto_conventional_commit_labels", None)
+        
+        if parallel_cycles is not None or cycle_auto_complete is not None or auto_conventional_commit_labels is not None:
+            from plane.db.models import ProjectCustomSettings
+            custom_settings, _ = ProjectCustomSettings.objects.get_or_create(
+                project=instance,
+                defaults={"workspace": instance.workspace}
+            )
+            if parallel_cycles is not None:
+                custom_settings.parallel_cycles = parallel_cycles
+            if cycle_auto_complete is not None:
+                custom_settings.cycle_auto_complete = cycle_auto_complete
+            if auto_conventional_commit_labels is not None:
+                was_enabled = custom_settings.auto_conventional_commit_labels
+                custom_settings.auto_conventional_commit_labels = auto_conventional_commit_labels
+                if not was_enabled and auto_conventional_commit_labels:
+                    from plane.utils.conventional_commits import auto_label_conventional_commits_for_project
+                    auto_label_conventional_commits_for_project(instance)
+            custom_settings.save()
+            
+        return super().update(instance, validated_data)
 
 
 class ProjectLiteSerializer(BaseSerializer):
@@ -121,6 +199,9 @@ class ProjectListSerializer(DynamicBaseSerializer):
     cover_image_url = serializers.CharField(read_only=True)
     inbox_view = serializers.BooleanField(read_only=True, source="intake_view")
     next_work_item_sequence = serializers.SerializerMethodField()
+    parallel_cycles = serializers.BooleanField(required=False)
+    cycle_auto_complete = serializers.BooleanField(required=False)
+    auto_conventional_commit_labels = serializers.BooleanField(required=False)
 
     def get_members(self, obj):
         project_members = getattr(obj, "members_list", None)
@@ -138,6 +219,33 @@ class ProjectListSerializer(DynamicBaseSerializer):
         model = Project
         fields = "__all__"
 
+    def to_representation(self, instance):
+        """
+        Custom override:
+        Incorporate `parallel_cycles`, `cycle_auto_complete`, and `auto_conventional_commit_labels` settings in the project representation.
+        """
+        data = super().to_representation(instance)
+        custom_settings = getattr(instance, "custom_settings", None)
+        parallel = (
+            custom_settings.parallel_cycles
+            if custom_settings is not None
+            else instance.cycle_view
+        )
+        auto_complete = (
+            custom_settings.cycle_auto_complete
+            if custom_settings is not None
+            else False
+        )
+        auto_conventional = (
+            custom_settings.auto_conventional_commit_labels
+            if custom_settings is not None
+            else False
+        )
+        data["parallel_cycles"] = parallel
+        data["cycle_auto_complete"] = auto_complete
+        data["auto_conventional_commit_labels"] = auto_conventional
+        return data
+
 
 class ProjectDetailSerializer(BaseSerializer):
     # workspace = WorkSpaceSerializer(read_only=True)
@@ -147,10 +255,70 @@ class ProjectDetailSerializer(BaseSerializer):
     sort_order = serializers.FloatField(read_only=True)
     member_role = serializers.IntegerField(read_only=True)
     anchor = serializers.CharField(read_only=True)
+    # Custom override: fields for managing custom project configuration
+    parallel_cycles = serializers.BooleanField(required=False)
+    cycle_auto_complete = serializers.BooleanField(required=False)
+    auto_conventional_commit_labels = serializers.BooleanField(required=False)
 
     class Meta:
         model = Project
         fields = "__all__"
+
+    def to_representation(self, instance):
+        """
+        Custom override:
+        Incorporate `parallel_cycles`, `cycle_auto_complete`, and `auto_conventional_commit_labels` settings in the project detail representation.
+        """
+        data = super().to_representation(instance)
+        custom_settings = getattr(instance, "custom_settings", None)
+        parallel = (
+            custom_settings.parallel_cycles
+            if custom_settings is not None
+            else instance.cycle_view
+        )
+        auto_complete = (
+            custom_settings.cycle_auto_complete
+            if custom_settings is not None
+            else False
+        )
+        auto_conventional = (
+            custom_settings.auto_conventional_commit_labels
+            if custom_settings is not None
+            else False
+        )
+        data["parallel_cycles"] = parallel
+        data["cycle_auto_complete"] = auto_complete
+        data["auto_conventional_commit_labels"] = auto_conventional
+        return data
+
+    def update(self, instance, validated_data):
+        """
+        Custom override:
+        Update project detail details, applying custom settings changes to `ProjectCustomSettings`.
+        """
+        parallel_cycles = validated_data.pop("parallel_cycles", None)
+        cycle_auto_complete = validated_data.pop("cycle_auto_complete", None)
+        auto_conventional_commit_labels = validated_data.pop("auto_conventional_commit_labels", None)
+        
+        if parallel_cycles is not None or cycle_auto_complete is not None or auto_conventional_commit_labels is not None:
+            from plane.db.models import ProjectCustomSettings
+            custom_settings, _ = ProjectCustomSettings.objects.get_or_create(
+                project=instance,
+                defaults={"workspace": instance.workspace}
+            )
+            if parallel_cycles is not None:
+                custom_settings.parallel_cycles = parallel_cycles
+            if cycle_auto_complete is not None:
+                custom_settings.cycle_auto_complete = cycle_auto_complete
+            if auto_conventional_commit_labels is not None:
+                was_enabled = custom_settings.auto_conventional_commit_labels
+                custom_settings.auto_conventional_commit_labels = auto_conventional_commit_labels
+                if not was_enabled and auto_conventional_commit_labels:
+                    from plane.utils.conventional_commits import auto_label_conventional_commits_for_project
+                    auto_label_conventional_commits_for_project(instance)
+            custom_settings.save()
+            
+        return super().update(instance, validated_data)
 
 
 class ProjectMemberSerializer(BaseSerializer):

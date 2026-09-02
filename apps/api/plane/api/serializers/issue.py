@@ -188,27 +188,57 @@ class IssueSerializer(BaseSerializer):
             except IntegrityError:
                 pass
         else:
-            try:
-                # Then assign it to default assignee, if it is a valid assignee
-                if (
-                    default_assignee_id is not None
-                    and ProjectMember.objects.filter(
-                        member_id=default_assignee_id,
+            # ORCA CUSTOM FEATURE: Default to assignees of user's last created issue with assignees in project
+            last_assignee_ids = []
+            user_id = created_by_id or (
+                self.context.get("request")
+                and getattr(self.context["request"], "user", None)
+                and getattr(self.context["request"].user, "id", None)
+            )
+            if user_id:
+                last_issue = (
+                    Issue.objects.filter(
+                        created_by_id=user_id,
+                        project_id=project_id,
+                    )
+                    .exclude(pk=issue.pk)
+                    .order_by("-created_at")
+                    .first()
+                )
+                if last_issue:
+                    valid_member_ids = ProjectMember.objects.filter(
                         project_id=project_id,
                         role__gte=15,
                         is_active=True,
-                    ).exists()
-                ):
-                    IssueAssignee.objects.create(
-                        assignee_id=default_assignee_id,
-                        issue=issue,
-                        project_id=project_id,
-                        workspace_id=workspace_id,
-                        created_by_id=created_by_id,
-                        updated_by_id=updated_by_id,
+                    ).values_list("member_id", flat=True)
+                    last_assignee_ids = list(
+                        dict.fromkeys(
+                            IssueAssignee.objects.filter(
+                                issue=last_issue,
+                                project_id=project_id,
+                                assignee_id__in=valid_member_ids,
+                            ).values_list("assignee_id", flat=True)
+                        )
                     )
-            except IntegrityError:
-                pass
+
+            if last_assignee_ids:
+                try:
+                    IssueAssignee.objects.bulk_create(
+                        [
+                            IssueAssignee(
+                                assignee_id=assignee_id,
+                                issue=issue,
+                                project_id=project_id,
+                                workspace_id=workspace_id,
+                                created_by_id=created_by_id,
+                                updated_by_id=updated_by_id,
+                            )
+                            for assignee_id in last_assignee_ids
+                        ],
+                        batch_size=10,
+                    )
+                except IntegrityError:
+                    pass
 
         if labels is not None and len(labels):
             try:

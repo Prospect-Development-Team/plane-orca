@@ -19,7 +19,7 @@ import { setPromiseToast, setToast, TOAST_TYPE } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { IProject } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
-import { Avatar, AvatarGroup, ContextMenu, FavoriteStar } from "@plane/ui";
+import { Avatar, AvatarGroup, ContextMenu, FavoriteStar, CustomMenu } from "@plane/ui";
 import { copyUrlToClipboard, cn, getFileURL, renderFormattedDate } from "@plane/utils";
 // components
 // hooks
@@ -33,6 +33,9 @@ import { CoverImage } from "@/components/common/cover-image";
 import { DeleteProjectModal } from "./delete-project-modal";
 import { JoinProjectModal } from "./join-project-modal";
 import { ArchiveRestoreProjectModal } from "./archive-restore-modal";
+import { useEffect } from "react";
+import { useCustomProjectState } from "@/hooks/store/use-custom-project-state";
+import { useCustomProjectLabel } from "@/hooks/store/use-custom-project-label";
 
 type Props = {
   project: IProject;
@@ -57,6 +60,32 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
   const { isMobile } = usePlatformOS();
   // derived values
   const projectMembersIds = project.members;
+
+  const customStore = useCustomProjectState();
+  const labelStore = useCustomProjectLabel();
+
+  useEffect(() => {
+    if (workspaceSlug && project.id) {
+      customStore.fetchSettings(workspaceSlug.toString());
+      customStore.fetchStates(workspaceSlug.toString());
+      customStore.fetchProjectProperty(workspaceSlug.toString(), project.id);
+      labelStore.fetchSettings(workspaceSlug.toString());
+      labelStore.fetchProjectProperty(workspaceSlug.toString(), project.id);
+      labelStore.fetchLabels(workspaceSlug.toString());
+      labelStore.fetchProjectLabelAssignments(workspaceSlug.toString(), project.id);
+    }
+  }, [workspaceSlug, project.id, customStore, labelStore]);
+
+  const stateProperty = customStore.projectProperties[project.id];
+  const stateDetail = stateProperty?.state_detail;
+
+  const labelSettings = labelStore.settings;
+  const labelProperty = labelStore.projectProperties[project.id];
+  const isLabelEnabled = labelSettings?.is_enabled && (labelProperty ? labelProperty.is_enabled : false);
+
+  const assignedMappings = labelStore.projectLabelAssignments[project.id] || [];
+  const assignedLabels = assignedMappings.map((m: any) => m.label_detail).filter(Boolean);
+
   const shouldRenderFavorite = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.WORKSPACE
@@ -303,11 +332,140 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                 )}
               </Tooltip>
               {isArchived && <div className="text-11 font-medium text-placeholder">Archived</div>}
+              {customStore.settings?.is_enabled && stateProperty?.is_enabled && (
+                <div data-prevent-progress className="shrink-0">
+                  {stateDetail ? (
+                    <CustomMenu
+                      customButton={
+                        <button className="flex items-center gap-1.5 rounded-full border border-subtle bg-surface-1 px-2 py-0.5 transition-colors hover:bg-layer-1">
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: stateDetail.color }}
+                          />
+                          <span className="text-11 font-medium text-secondary">{stateDetail.name}</span>
+                        </button>
+                      }
+                      placement="bottom-start"
+                      disabled={!isMemberOfProject}
+                      closeOnSelect
+                    >
+                      {customStore.states?.map((st) => (
+                        <CustomMenu.MenuItem
+                          key={st.id}
+                          onClick={() => {
+                            if (workspaceSlug) {
+                              customStore.updateProjectProperty(workspaceSlug.toString(), project.id, {
+                                state: st.id,
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="size-2.5 rounded-full" style={{ backgroundColor: st.color }} />
+                          <span>{st.name}</span>
+                        </CustomMenu.MenuItem>
+                      ))}
+                    </CustomMenu>
+                  ) : (
+                    <CustomMenu
+                      customButton={
+                        <button className="text-11 text-placeholder transition-colors hover:text-secondary">
+                          Set State
+                        </button>
+                      }
+                      placement="bottom-start"
+                      disabled={!isMemberOfProject}
+                      closeOnSelect
+                    >
+                      {customStore.states?.map((st) => (
+                        <CustomMenu.MenuItem
+                          key={st.id}
+                          onClick={() => {
+                            if (workspaceSlug) {
+                              customStore.updateProjectProperty(workspaceSlug.toString(), project.id, {
+                                state: st.id,
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="size-2.5 rounded-full" style={{ backgroundColor: st.color }} />
+                          <span>{st.name}</span>
+                        </CustomMenu.MenuItem>
+                      ))}
+                    </CustomMenu>
+                  )}
+                </div>
+              )}
+
+              {/* Project Labels */}
+              {isLabelEnabled && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {assignedLabels.map((lbl: any) => (
+                    <span
+                      key={lbl.id}
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-10 font-medium"
+                      style={{
+                        backgroundColor: `${lbl.color}20`,
+                        color: lbl.color,
+                        border: `1px solid ${lbl.color}40`,
+                      }}
+                    >
+                      {lbl.name}
+                    </span>
+                  ))}
+                  {!isArchived && (
+                    <div data-prevent-progress className="shrink-0">
+                      <CustomMenu
+                        customButton={
+                          <button className="px-1 text-11 text-placeholder transition-colors hover:text-secondary">
+                            + Label
+                          </button>
+                        }
+                        placement="bottom-start"
+                        disabled={!isMemberOfProject}
+                        closeOnSelect={false}
+                      >
+                        {labelStore.labels?.map((lbl) => {
+                          const isAssigned = assignedLabels.some((l: any) => l.id === lbl.id);
+                          return (
+                            <CustomMenu.MenuItem
+                              key={lbl.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (workspaceSlug) {
+                                  const currentIds = assignedLabels.map((l: any) => l.id);
+                                  const nextIds = isAssigned
+                                    ? currentIds.filter((id) => id !== lbl.id)
+                                    : [...currentIds, lbl.id];
+                                  labelStore.updateProjectLabelAssignments(
+                                    workspaceSlug.toString(),
+                                    project.id,
+                                    nextIds
+                                  );
+                                }
+                              }}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="size-2.5 rounded-full" style={{ backgroundColor: lbl.color }} />
+                                <span>{lbl.name}</span>
+                              </div>
+                              {isAssigned && <CheckIcon className="size-3.5" />}
+                            </CustomMenu.MenuItem>
+                          );
+                        })}
+                      </CustomMenu>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {isArchived ? (
               hasAdminRole && (
                 <div className="flex items-center justify-center gap-2">
-                  <div
+                  <button
+                    type="button"
                     className="flex items-center justify-center text-11 font-medium text-placeholder hover:text-secondary"
                     onClick={(e) => {
                       e.preventDefault();
@@ -319,8 +477,9 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                       <ArchiveRestoreIcon className="h-3.5 w-3.5" />
                       Restore
                     </div>
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
                     className="flex items-center justify-center text-11 font-medium text-placeholder hover:text-secondary"
                     onClick={(e) => {
                       e.preventDefault();
@@ -329,7 +488,7 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                     }}
                   >
                     <TrashIcon className="h-3.5 w-3.5" />
-                  </div>
+                  </button>
                 </div>
               )
             ) : (

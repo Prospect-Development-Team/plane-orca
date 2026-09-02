@@ -51,12 +51,17 @@ class IntakeIssueSerializer(BaseSerializer):
             intake_issue = self.instance
             issue = intake_issue.issue
 
-            # Check if issue is in TRIAGE state
-            if issue.state and issue.state.group == StateGroup.TRIAGE.value:
+            # Check if issue is in TRIAGE state or has no state
+            if not issue.state or issue.state.group == StateGroup.TRIAGE.value:
                 # Verify default state exists before allowing the update
-                default_state = State.objects.filter(
-                    workspace=intake_issue.workspace, project=intake_issue.project, default=True
-                ).first()
+                default_state = (
+                    State.objects.filter(project_id=intake_issue.project_id, default=True).first()
+                    or getattr(intake_issue.project, "default_state", None)
+                    or State.objects.filter(project_id=intake_issue.project_id, group=StateGroup.BACKLOG.value).first()
+                    or State.objects.filter(project_id=intake_issue.project_id, group=StateGroup.UNSTARTED.value).first()
+                    or State.objects.filter(project_id=intake_issue.project_id).exclude(group=StateGroup.TRIAGE.value).first()
+                    or State.all_state_objects.filter(project_id=intake_issue.project_id).first()
+                )
 
                 if not default_state:
                     raise serializers.ValidationError(
@@ -72,11 +77,16 @@ class IntakeIssueSerializer(BaseSerializer):
         # If status is accepted (1), transition the issue state from TRIAGE to default
         if validated_data.get("status") == 1:
             issue = instance.issue
-            if issue.state and issue.state.group == StateGroup.TRIAGE.value:
+            if not issue.state or issue.state.group == StateGroup.TRIAGE.value:
                 # Get the default project state
-                default_state = State.objects.filter(
-                    workspace=instance.workspace, project=instance.project, default=True
-                ).first()
+                default_state = (
+                    State.objects.filter(project_id=instance.project_id, default=True).first()
+                    or getattr(instance.project, "default_state", None)
+                    or State.objects.filter(project_id=instance.project_id, group=StateGroup.BACKLOG.value).first()
+                    or State.objects.filter(project_id=instance.project_id, group=StateGroup.UNSTARTED.value).first()
+                    or State.objects.filter(project_id=instance.project_id).exclude(group=StateGroup.TRIAGE.value).first()
+                    or State.all_state_objects.filter(project_id=instance.project_id).first()
+                )
                 if default_state:
                     issue.state = default_state
                     issue.save()

@@ -261,6 +261,12 @@
         "description": "Project States is a Plane-only feature for tracking progress of all your projects by any project property.",
         "go_to_settings": "Go to settings"
       },
+      "project_labels": {
+        "title": "Project labels",
+        "heading": "Project Labels",
+        "description": "Create and manage workspace-level project labels for categorization and board/list grouping.",
+        "go_to_settings": "Go to settings"
+      },
       "projects": {
         "title": "Projects",
         "description": "Manage project states, and enable project labels, and other configuration.",

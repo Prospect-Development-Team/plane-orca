@@ -17,6 +17,10 @@ import { IssueBulkOperationsRoot } from "@/components/issues/bulk-operations";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
 import { useBulkOperationStatus } from "@/hooks/use-bulk-operation-status";
+// hooks
+import { useMultipleSelectStore } from "@/hooks/store/use-multiple-select-store";
+// helpers
+import { cn } from "@plane/utils";
 // local imports
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { QuickAddIssueRoot, SpreadsheetAddIssueButton } from "../quick-add";
@@ -64,6 +68,7 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
   const { currentProjectDetails } = useProject();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
+  const { isSelectionActive } = useMultipleSelectStore();
 
   const isEstimateEnabled: boolean = currentProjectDetails?.estimate !== null;
 
@@ -107,7 +112,12 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
                 isEpic={isEpic}
               />
             </div>
-            <div className="border-t border-subtle">
+            <div
+              className={cn(
+                "border-t border-subtle transition-all duration-300",
+                isSelectionActive ? "mb-[4.5rem]" : "mb-0"
+              )}
+            >
               <div className="sticky bottom-0 left-0 z-5">
                 {enableQuickCreateIssue && !disableIssueCreation && (
                   <QuickAddIssueRoot

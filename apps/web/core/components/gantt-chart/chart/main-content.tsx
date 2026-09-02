@@ -22,11 +22,14 @@ import { GanttChartSidebar, MonthChartView, QuarterChartView, WeekChartView } fr
 // helpers
 // hooks
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
+import { useMultipleSelectStore } from "@/hooks/store/use-multiple-select-store";
+// components
 import { GanttChartRowList } from "@/components/gantt-chart/blocks/block-row-list";
 import { GanttChartBlocksList } from "@/components/gantt-chart/blocks/blocks-list";
 import { IssueBulkOperationsRoot } from "@/components/issues/bulk-operations";
+// hooks
 import { useBulkOperationStatus } from "@/hooks/use-bulk-operation-status";
-// local imports
+//
 import { DEFAULT_BLOCK_WIDTH, GANTT_SELECT_GROUP, HEADER_HEIGHT } from "../constants";
 import { getItemPositionWidth } from "../views";
 import { TimelineDragHelper } from "./timeline-drag-helper";
@@ -89,6 +92,7 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
   const { currentView, currentViewData } = useTimeLineChartStore();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
+  const { isSelectionActive } = useMultipleSelectStore();
 
   // Enable Auto Scroll for Ganttlist
   useEffect(() => {
@@ -103,8 +107,7 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
         canScroll: ({ source }) => source.data.dragInstanceId === "GANTT_REORDER",
       })
     );
-    // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps
-  }, [ganttContainerRef?.current]);
+  }, []);
 
   // handling scroll functionality
   const onScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
@@ -228,7 +231,11 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
                 )}
               </div>
             </div>
-            {quickAdd ? quickAdd : null}
+            {quickAdd ? (
+              <div className={cn("transition-all duration-300", isSelectionActive ? "mb-[4.5rem]" : "mb-0")}>
+                {quickAdd}
+              </div>
+            ) : null}
             <IssueBulkOperationsRoot selectionHelpers={helpers} />
           </>
         )}

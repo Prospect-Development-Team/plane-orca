@@ -4,8 +4,9 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { Placement } from "@popperjs/core";
+import { Loader } from "lucide-react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { usePopper } from "react-popper";
@@ -15,10 +16,13 @@ import { Combobox } from "@headlessui/react";
 import { useTranslation } from "@plane/i18n";
 // icon
 import { CheckIcon, CycleGroupIcon, CycleIcon, SearchIcon } from "@plane/propel/icons";
+import { EUserPermissionsLevel } from "@plane/constants";
 import type { TCycleGroups } from "@plane/types";
+import { EUserProjectRoles } from "@plane/types";
 // ui
 // store hooks
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useUserPermissions } from "@/hooks/store/user";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // types
 
@@ -37,29 +41,62 @@ type CycleOptionsProps = {
   isOpen: boolean;
   canRemoveCycle: boolean;
   currentCycleId?: string;
+  createCycleEnabled?: boolean;
+  onChange?: (val: string | null) => void;
 };
 
 export const CycleOptions = observer(function CycleOptions(props: CycleOptionsProps) {
-  const { projectId, isOpen, referenceElement, placement, canRemoveCycle, currentCycleId } = props;
+  const {
+    projectId,
+    isOpen,
+    referenceElement,
+    placement,
+    canRemoveCycle,
+    currentCycleId,
+    createCycleEnabled,
+    onChange,
+  } = props;
   // i18n
   const { t } = useTranslation();
   //state hooks
   const [query, setQuery] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   // store hooks
   const { workspaceSlug } = useParams();
-  const { getProjectCycleIds, fetchAllCycles, getCycleById } = useCycle();
+  const { getProjectCycleIds, fetchAllCycles, getCycleById, createCycle } = useCycle();
+  const { allowPermissions } = useUserPermissions();
   const { isMobile } = usePlatformOS();
+
+  const isPermittedToCreate =
+    projectId && workspaceSlug
+      ? allowPermissions(
+          [EUserProjectRoles.ADMIN, EUserProjectRoles.MEMBER],
+          EUserPermissionsLevel.PROJECT,
+          workspaceSlug.toString(),
+          projectId
+        )
+      : true;
+  const canCreateCycle = createCycleEnabled ?? isPermittedToCreate;
+
+  const cycleIds = (getProjectCycleIds(projectId) ?? [])?.filter((cycleId) => {
+    if (currentCycleId && currentCycleId === cycleId) return false;
+    return true;
+  });
+
+  const onOpen = useCallback(() => {
+    if (workspaceSlug && !cycleIds) fetchAllCycles(workspaceSlug.toString(), projectId);
+  }, [workspaceSlug, cycleIds, fetchAllCycles, projectId]);
 
   useEffect(() => {
     if (isOpen) {
       onOpen();
       if (!isMobile) {
-        inputRef.current && inputRef.current.focus();
+        inputRef.current?.focus();
       }
     }
-  }, [isOpen, isMobile]);
+  }, [isOpen, isMobile, onOpen]);
 
   // popper-js init
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
@@ -74,20 +111,34 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
     ],
   });
 
-  const cycleIds = (getProjectCycleIds(projectId) ?? [])?.filter((cycleId) => {
-    const cycleDetails = getCycleById(cycleId);
-    if (currentCycleId && currentCycleId === cycleId) return false;
-    return cycleDetails?.status ? (cycleDetails?.status.toLowerCase() != "completed" ? true : false) : true;
-  });
+  /**
+   * @description Handles creating a new cycle inline or selecting an existing cycle with matching name
+   * @param {string} cycleName - Name of the cycle to create or select
+   * @returns {Promise<void>}
+   */
+  const handleAddCycle = async (cycleName: string) => {
+    if (!projectId || !workspaceSlug || submitting) return;
+    const name = cycleName.trim();
+    if (!name) return;
+    setSubmitting(true);
+    try {
+      const existingCycle = cycleIds
+        ?.map((id) => getCycleById(id))
+        .find((c) => c?.name.toLowerCase() === name.toLowerCase());
 
-  const onOpen = () => {
-    if (workspaceSlug && !cycleIds) fetchAllCycles(workspaceSlug.toString(), projectId);
-  };
-
-  const searchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (query !== "" && e.key === "Escape") {
-      e.stopPropagation();
+      let selectedId: string;
+      if (existingCycle) {
+        selectedId = existingCycle.id;
+      } else {
+        const newCycle = await createCycle(workspaceSlug.toString(), projectId, { name });
+        selectedId = newCycle.id;
+      }
+      onChange?.(selectedId);
       setQuery("");
+    } catch (error) {
+      console.error("Failed to create cycle", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -123,6 +174,37 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
   const filteredOptions =
     query === "" ? options : options?.filter((o) => o.query.toLowerCase().includes(query.toLowerCase()));
 
+  const hasExactMatch = options?.some(
+    (o) => o.value !== null && o.query.trim().toLowerCase() === query.trim().toLowerCase()
+  );
+
+  /**
+   * @description Handles keyboard shortcuts for cycle search input (Escape to clear, Enter to create/select)
+   * @param {React.KeyboardEvent<HTMLInputElement>} e - Input keyboard event
+   * @returns {Promise<void>}
+   */
+  const searchInputKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const q = query.trim();
+    if (q !== "" && e.key === "Escape") {
+      e.stopPropagation();
+      setQuery("");
+      return;
+    }
+
+    if (
+      q !== "" &&
+      e.key === "Enter" &&
+      !e.nativeEvent.isComposing &&
+      canCreateCycle &&
+      !hasExactMatch &&
+      !submitting
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleAddCycle(q);
+    }
+  };
+
   return (
     <Combobox.Options className="fixed z-10" static>
       <div
@@ -145,29 +227,48 @@ export const CycleOptions = observer(function CycleOptions(props: CycleOptionsPr
           />
         </div>
         <div className="mt-2 max-h-48 space-y-1 overflow-y-scroll">
-          {filteredOptions ? (
-            filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <Combobox.Option
-                  key={option.value}
-                  value={option.value}
-                  className={({ active, selected }) =>
-                    `flex w-full cursor-pointer items-center justify-between gap-2 truncate rounded-sm px-1 py-1.5 select-none ${
-                      active ? "bg-layer-transparent-hover" : ""
-                    } ${selected ? "text-primary" : "text-secondary"}`
-                  }
-                >
-                  {({ selected }) => (
-                    <>
-                      <span className="flex-grow truncate">{option.content}</span>
-                      {selected && <CheckIcon className="h-3.5 w-3.5 flex-shrink-0" />}
-                    </>
+          {submitting ? (
+            <div className="flex items-center justify-center p-2">
+              <Loader className="h-3.5 w-3.5 animate-spin text-tertiary" />
+            </div>
+          ) : filteredOptions ? (
+            <>
+              {filteredOptions.length > 0
+                ? filteredOptions.map((option) => (
+                    <Combobox.Option
+                      key={option.value}
+                      value={option.value}
+                      className={({ active, selected }) =>
+                        `flex w-full cursor-pointer items-center justify-between gap-2 truncate rounded-sm px-1 py-1.5 select-none ${
+                          active ? "bg-layer-transparent-hover" : ""
+                        } ${selected ? "text-primary" : "text-secondary"}`
+                      }
+                    >
+                      {({ selected }) => (
+                        <>
+                          <span className="flex-grow truncate">{option.content}</span>
+                          {selected && <CheckIcon className="h-3.5 w-3.5 flex-shrink-0" />}
+                        </>
+                      )}
+                    </Combobox.Option>
+                  ))
+                : !canCreateCycle && (
+                    <p className="px-1.5 py-1 text-placeholder italic">{t("common.search.no_matches_found")}</p>
                   )}
-                </Combobox.Option>
-              ))
-            ) : (
-              <p className="px-1.5 py-1 text-placeholder italic">{t("common.search.no_matches_found")}</p>
-            )
+
+              {canCreateCycle && query.trim().length > 0 && !hasExactMatch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!query.trim().length) return;
+                    handleAddCycle(query.trim());
+                  }}
+                  className="w-full cursor-pointer rounded-sm px-1.5 py-1 text-left text-secondary hover:bg-layer-1"
+                >
+                  + Add <span className="text-primary">&quot;{query.trim()}&quot;</span> to cycles
+                </button>
+              )}
+            </>
           ) : (
             <p className="px-1.5 py-1 text-placeholder italic">{t("common.loading")}</p>
           )}

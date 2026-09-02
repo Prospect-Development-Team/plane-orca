@@ -125,11 +125,11 @@ export class StateStore implements IStateStore {
 
     // Ensure all STATE_GROUPS are present
     const allGroups = Object.keys(STATE_GROUPS).reduce(
-      (acc, group) => ({
+      (acc, group) => {
         // oxlint-disable-next-line oxc/no-accumulating-spread
-        ...acc,
-        [group]: groupedStates[group] || [],
-      }),
+        acc[group] = groupedStates[group] || [];
+        return acc;
+      },
       {} as Record<string, IState[]>
     );
 
@@ -219,6 +219,12 @@ export class StateStore implements IStateStore {
   fetchProjectStates = async (workspaceSlug: string, projectId: string) => {
     const statesResponse = await this.stateService.getStates(workspaceSlug, projectId);
     runInAction(() => {
+      // Clear existing states for this project from stateMap to avoid duplication
+      Object.keys(this.stateMap).forEach((id) => {
+        if (this.stateMap[id]?.project_id === projectId) {
+          delete this.stateMap[id];
+        }
+      });
       statesResponse.forEach((state) => {
         set(this.stateMap, [state.id], state);
       });
@@ -308,11 +314,9 @@ export class StateStore implements IStateStore {
    */
   deleteState = async (workspaceSlug: string, projectId: string, stateId: string) => {
     if (!this.stateMap?.[stateId]) return;
-    // oxlint-disable-next-line promise/always-return
-    await this.stateService.deleteState(workspaceSlug, projectId, stateId).then(() => {
-      runInAction(() => {
-        delete this.stateMap[stateId];
-      });
+    await this.stateService.deleteState(workspaceSlug, projectId, stateId);
+    runInAction(() => {
+      delete this.stateMap[stateId];
     });
   };
 

@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { Pencil, ExternalLink, Link, Trash2, ArchiveRestoreIcon } from "lucide-react";
+import { Pencil, ExternalLink, Link, Trash2, ArchiveRestoreIcon, PlayCircle, StopCircle } from "lucide-react";
 import { useTranslation } from "@plane/i18n";
 import { ArchiveIcon } from "@plane/propel/icons";
 import type { TContextMenuItem } from "@plane/ui";
@@ -66,6 +66,34 @@ export const useQuickActionsFactory = () => {
       key: "delete",
       title: t("delete"),
       icon: Trash2,
+      action: handler,
+      shouldRender,
+    }),
+
+    /**
+     * Orca Custom: "Start Cycle" menu item — shown on upcoming/draft cycles.
+     * Triggers the CycleStartStopModal in "start" mode.
+     * @param handler - opens the start confirmation modal
+     * @param shouldRender - visibility control based on cycle status
+     */
+    createStartCycleMenuItem: (handler: () => void, shouldRender: boolean = true): TContextMenuItem => ({
+      key: "start-cycle",
+      title: "Start cycle",
+      icon: PlayCircle,
+      action: handler,
+      shouldRender,
+    }),
+
+    /**
+     * Orca Custom: "Complete Cycle" menu item — shown on active (current) cycles.
+     * Triggers the CycleStartStopModal in "end" mode.
+     * @param handler - opens the end confirmation modal
+     * @param shouldRender - visibility control based on cycle status
+     */
+    createEndCycleMenuItem: (handler: () => void, shouldRender: boolean = true): TContextMenuItem => ({
+      key: "end-cycle",
+      title: "Complete cycle",
+      icon: StopCircle,
       action: handler,
       shouldRender,
     }),

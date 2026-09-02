@@ -16,7 +16,7 @@ from rest_framework import status
 from .. import BaseViewSet, BaseAPIView
 from plane.app.serializers import LabelSerializer
 from plane.app.permissions import allow_permission, ProjectBasePermission, ROLE
-from plane.db.models import Project, Label
+from plane.db.models import Project, Label, WorkspaceProjectLabelSettings, ProjectLabelProperty
 from plane.utils.cache import invalidate_cache
 
 
@@ -26,11 +26,21 @@ class LabelViewSet(BaseViewSet):
     permission_classes = [ProjectBasePermission]
 
     def get_queryset(self):
+        queryset = super().get_queryset().filter(workspace__slug=self.kwargs.get("slug"))
+        
+        ws_slug = self.kwargs.get("slug")
+        proj_id = self.kwargs.get("project_id")
+        
+        is_workspace_labels_enabled = WorkspaceProjectLabelSettings.objects.filter(workspace__slug=ws_slug, is_enabled=True).exists()
+        is_project_using_workspace_labels = ProjectLabelProperty.objects.filter(project_id=proj_id, is_enabled=True).exists()
+        
+        if is_workspace_labels_enabled and is_project_using_workspace_labels:
+            workspace_label_names = Label.objects.filter(workspace__slug=ws_slug, project__isnull=True).values_list("name", flat=True)
+            queryset = queryset.filter(name__in=workspace_label_names)
+
         return self.filter_queryset(
-            super()
-            .get_queryset()
-            .filter(workspace__slug=self.kwargs.get("slug"))
-            .filter(project_id=self.kwargs.get("project_id"))
+            queryset
+            .filter(project_id=proj_id)
             .filter(project__project_projectmember__member=self.request.user)
             .select_related("project")
             .select_related("workspace")

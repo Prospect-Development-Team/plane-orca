@@ -346,7 +346,7 @@ class CycleListCreateAPIEndpoint(BaseAPIView):
                     origin=base_host(request=request, is_app=True),
                 )
 
-                cycle = Cycle.objects.get(pk=serializer.instance.id)
+                cycle = self.get_queryset().get(pk=serializer.instance.id)
                 serializer = CycleSerializer(cycle)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -558,15 +558,7 @@ class CycleDetailAPIEndpoint(BaseAPIView):
 
         request_data = request.data
 
-        if cycle.end_date is not None and cycle.end_date < timezone.now():
-            if "sort_order" in request_data:
-                # Can only change sort order
-                request_data = {"sort_order": request_data.get("sort_order", cycle.sort_order)}
-            else:
-                return Response(
-                    {"error": "The Cycle has already been completed so it cannot be edited"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+
 
         serializer = CycleUpdateSerializer(
             cycle, data=request.data, partial=True, context={"request": request, "project_id": project_id}
@@ -601,7 +593,7 @@ class CycleDetailAPIEndpoint(BaseAPIView):
                 slug=slug,
                 origin=base_host(request=request, is_app=True),
             )
-            cycle = Cycle.objects.get(pk=serializer.instance.id)
+            cycle = self.get_queryset().get(pk=serializer.instance.id)
             serializer = CycleSerializer(cycle)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -979,11 +971,11 @@ class CycleIssueListCreateAPIEndpoint(BaseAPIView):
 
         cycle = Cycle.objects.get(workspace__slug=slug, project_id=project_id, pk=cycle_id)
 
-        if cycle.end_date is not None and cycle.end_date < timezone.now():
+        if cycle.archived_at:
             return Response(
                 {
-                    "code": "CYCLE_COMPLETED",
-                    "message": "The Cycle has already been completed so no new issues can be added",
+                    "code": "CYCLE_ARCHIVED",
+                    "message": "The Cycle has been archived so no new issues can be added",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

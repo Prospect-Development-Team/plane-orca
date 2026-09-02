@@ -27,7 +27,36 @@ import { useUserPermissions } from "@/hooks/store/user";
 // local imports
 import { SettingsHeading } from "../settings/heading";
 
-export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelList() {
+type TProjectSettingsLabelListProps = {
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  labels?: any[];
+  labelsTree?: any[];
+  labelOperationsCallbacks?: TLabelOperationsCallbacks;
+  onDrop?: (
+    draggingLabelId: string,
+    droppedParentId: string | null,
+    droppedLabelId: string | undefined,
+    dropAtEndOfList: boolean
+  ) => void;
+  isEditable?: boolean;
+  handleDelete?: (label: IIssueLabel) => Promise<void>;
+};
+
+export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelList(
+  props: TProjectSettingsLabelListProps
+) {
+  const {
+    title,
+    description,
+    labels: propLabels,
+    labelsTree: propLabelsTree,
+    labelOperationsCallbacks: propLabelOperationsCallbacks,
+    onDrop: propOnDrop,
+    isEditable: propIsEditable,
+    handleDelete,
+  } = props;
+
   // router
   const { workspaceSlug, projectId } = useParams();
   // refs
@@ -39,22 +68,31 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
   // plane hooks
   const { t } = useTranslation();
   // store hooks
-  const { projectLabels, updateLabelPosition, projectLabelsTree, createLabel, updateLabel } = useLabel();
+  const {
+    projectLabels: storeLabels,
+    updateLabelPosition,
+    projectLabelsTree: storeLabelsTree,
+    createLabel,
+    updateLabel,
+  } = useLabel();
   const { allowPermissions } = useUserPermissions();
+
   // derived values
-  const isEditable = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.PROJECT);
-  const labelOperationsCallbacks: TLabelOperationsCallbacks = {
+  const isEditable =
+    propIsEditable !== undefined
+      ? propIsEditable
+      : allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.PROJECT);
+  const projectLabels = propLabels ?? storeLabels;
+  const projectLabelsTree = propLabelsTree ?? storeLabelsTree;
+
+  const defaultLabelOperationsCallbacks: TLabelOperationsCallbacks = {
     createLabel: (data: Partial<IIssueLabel>) => createLabel(workspaceSlug?.toString(), projectId?.toString(), data),
     updateLabel: (labelId: string, data: Partial<IIssueLabel>) =>
       updateLabel(workspaceSlug?.toString(), projectId?.toString(), labelId, data),
   };
+  const labelOperationsCallbacks = propLabelOperationsCallbacks ?? defaultLabelOperationsCallbacks;
 
-  const newLabel = () => {
-    setIsUpdating(false);
-    setLabelForm(true);
-  };
-
-  const onDrop = (
+  const defaultOnDrop = (
     draggingLabelId: string,
     droppedParentId: string | null,
     droppedLabelId: string | undefined,
@@ -72,6 +110,15 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
       return;
     }
   };
+  const onDrop = propOnDrop ?? defaultOnDrop;
+
+  const newLabel = () => {
+    setIsUpdating(false);
+    setLabelForm(true);
+  };
+
+  const finalTitle = title !== undefined ? title : t("project_settings.labels.heading");
+  const finalDescription = description !== undefined ? description : t("project_settings.labels.description");
 
   return (
     <>
@@ -79,18 +126,29 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
         isOpen={!!selectDeleteLabel}
         data={selectDeleteLabel ?? null}
         onClose={() => setSelectDeleteLabel(null)}
+        handleDelete={handleDelete}
       />
-      <SettingsHeading
-        title={t("project_settings.labels.heading")}
-        description={t("project_settings.labels.description")}
-        control={
-          isEditable && (
-            <Button variant="primary" size="lg" onClick={newLabel}>
-              {t("common.add_label")}
-            </Button>
-          )
-        }
-      />
+      {(finalTitle || finalDescription) && (
+        <SettingsHeading
+          title={finalTitle}
+          description={finalDescription}
+          control={
+            isEditable && (
+              <Button variant="primary" size="lg" onClick={newLabel}>
+                {t("common.add_label")}
+              </Button>
+            )
+          }
+        />
+      )}
+      {/* If header is hidden but editable, we still need the Add Label button at the top */}
+      {!finalTitle && !finalDescription && isEditable && !showLabelForm && (
+        <div className="flex w-full justify-end">
+          <Button variant="primary" size="lg" onClick={newLabel}>
+            {t("common.add_label")}
+          </Button>
+        </div>
+      )}
       <div className="mt-6 w-full">
         {showLabelForm && (
           <div className="my-2 w-full rounded-sm border border-subtle px-3.5 py-2">
@@ -133,40 +191,37 @@ export const ProjectSettingsLabelList = observer(function ProjectSettingsLabelLi
                     key={label.id}
                     label={label}
                     labelChildren={label.children || []}
-                    handleLabelDelete={(label: IIssueLabel) => setSelectDeleteLabel(label)}
+                    handleLabelDelete={(lbl: IIssueLabel) => setSelectDeleteLabel(lbl)}
                     isUpdating={isUpdating}
                     setIsUpdating={setIsUpdating}
                     isLastChild={index === projectLabelsTree.length - 1}
                     onDrop={onDrop}
-                    isEditable={isEditable}
                     labelOperationsCallbacks={labelOperationsCallbacks}
+                    isEditable={isEditable}
                   />
                 );
               }
               return (
                 <ProjectSettingLabelItem
-                  label={label}
                   key={label.id}
+                  label={label}
+                  handleLabelDelete={(lbl: IIssueLabel) => setSelectDeleteLabel(lbl)}
                   setIsUpdating={setIsUpdating}
-                  handleLabelDelete={(label) => setSelectDeleteLabel(label)}
                   isChild={false}
                   isLastChild={index === projectLabelsTree.length - 1}
                   onDrop={onDrop}
-                  isEditable={isEditable}
                   labelOperationsCallbacks={labelOperationsCallbacks}
+                  isEditable={isEditable}
                 />
               );
             })
           )
         ) : (
-          !showLabelForm && (
-            <Loader className="space-y-5">
-              <Loader.Item height="42px" />
-              <Loader.Item height="42px" />
-              <Loader.Item height="42px" />
-              <Loader.Item height="42px" />
-            </Loader>
-          )
+          <Loader className="space-y-3">
+            <Loader.Item height="30px" />
+            <Loader.Item height="30px" />
+            <Loader.Item height="30px" />
+          </Loader>
         )}
       </div>
     </>

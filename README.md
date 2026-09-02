@@ -1,3 +1,66 @@
+# 🐋 Plane Orca (Custom Fork)
+
+> [!IMPORTANT]
+> **Plane Orca** is our customized team fork of upstream [Plane Community Edition](https://github.com/makeplane/plane).
+
+### ✨ Fork Features
+
+Plane Orca enhances official Plane Community Edition with extended workflow capabilities, automations, and streamlined self-hosting:
+
+| Category               | Feature                            | Description                                                                                                                                              |
+| :--------------------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **🔄 Parallel Cycles** | Multi-Active Cycles                | Run multiple active cycles simultaneously in a single project with manual start, pause, and complete controls.                                           |
+|                        | Auto-Complete & Transfer           | Automatically finish cycles on their end date and easily transfer unfinished work items between cycles.                                                  |
+| **🏷️ Global Taxonomy** | Shared Workspace Labels & States   | Create and maintain standardized issue states and labels at the workspace level across all team projects.                                                |
+| **⚡ Automations**     | Conventional Commits Auto-Labeling | Automatically assigns conventional labels (`feat`, `fix`, `docs`, `refactor`, `chore`, etc.) based on title prefixes, with on-activation backfill.       |
+| **🚀 Productivity**    | Quick Copy Details                 | Copy work item title and clean, single-spaced formatted description from context menus in one action.                                                    |
+|                        | Form Value Retention               | Preserves user input across creation forms when using "Create More".                                                                                     |
+|                        | Enhanced Bulk Operations           | Multi-select and update work item properties with clear, streamlined multi-value dropdowns.                                                              |
+| **🛠️ Data Migration**  | Plane-to-Plane Migration Tool      | Built-in CLI migration utility ([tools/migration](./tools/migration/README.md)) to migrate issues, cycles, labels, and projects between Plane instances. |
+| **🎨 UI & Privacy**    | Clean & Distraction-Free UI        | Removed telemetry trackers and promotional ads for a faster, clutter-free workspace.                                                                     |
+| **🐳 Self-Hosting**    | VPS & Coolify Ready                | Optimized low-memory footprint stack ([docker-compose-orca.yml](./docker-compose-orca.yml)) running smoothly under 3GB RAM.                              |
+
+### 🐳 Self-Hosted Deployment (`docker-compose-orca.yml`)
+
+Plane Orca is pre-configured for self-hosting on low-spec VPS instances (<3GB RAM) and PaaS platforms like **Coolify** using [docker-compose-orca.yml](./docker-compose-orca.yml).
+
+#### ⚡ Quick Start (Coolify)
+
+1. **Create Application**: Add a new **Docker Compose** resource in Coolify pointing to this repository (`stage` or `prod` branch) with file path `docker-compose-orca.yml`.
+2. **Assign Domain**: In **Domains**, route your URL (e.g. `https://plane.example.com`) to the **`proxy`** service on container port `80`.
+3. **Configure Secrets & Deploy**: Add required secrets in **Environment Variables** and click **Deploy**.
+
+> [!TIP]
+> **Generate Secret Keys**: Run `openssl rand -hex 32` in your terminal to generate 64-character secret keys.
+
+#### ⚙️ Configuration Variables
+
+| Variable                                      | Required | Description                     | Default                                    |
+| :-------------------------------------------- | :------: | :------------------------------ | :----------------------------------------- |
+| `SECRET_KEY`                                  | **Yes**  | Django session cryptography key | _User-provided (64-char hex)_              |
+| `LIVE_SERVER_SECRET_KEY`                      | **Yes**  | WebSocket encryption key        | _User-provided (64-char hex)_              |
+| `DOMAIN_NAME`                                 |    No    | Public application domain       | Auto-resolved from `${SERVICE_FQDN_PROXY}` |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD`         |    No    | PostgreSQL credentials          | `plane` / `plane123`                       |
+| `POSTGRES_DB`                                 |    No    | PostgreSQL database schema      | `plane`                                    |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` |    No    | MinIO / S3 storage credentials  | `plane-access-key` / `plane-secret-key`    |
+| `AWS_S3_BUCKET_NAME`                          |    No    | File upload storage bucket      | `uploads`                                  |
+
+### 🚀 Fork Workflow & Git Strategy
+
+| Branch      | Purpose                                                                                             | Source Branch          | Merge Target       | Environment                       |
+| :---------- | :-------------------------------------------------------------------------------------------------- | :--------------------- | :----------------- | :-------------------------------- |
+| `upstream`  | **Upstream Mirror**: Tracks unmodified official Plane CE releases (`master` branch).                | _None (upstream sync)_ | _None (read-only)_ | N/A                               |
+| `stage`     | **Staging/Integration**: Custom features, branding, and configs are integrated here.                | `stage`                | `stage`            | Staging / QA                      |
+| `prod`      | **Production Releases**: Deployed directly to our self-hosted Plane instance for team-internal use. | `stage`                | `prod`             | Production (Internal Self-Hosted) |
+| `feature/*` | **Feature Development**: Working branches for custom tasks and fixes.                               | `stage`                | `stage`            | Local Dev / Preview               |
+
+- **Development Rules**: Please read and follow [FORK.md](./FORK.md) and [AGENTS.md](./AGENTS.md) closely.
+  - Use the conventional commit format: `feat(orca):`, `fix(orca):`, `style(orca-ui):`, `style(orca):`, `docs(orca):`, `chore(orca):`, or `refactor(orca):`.
+  - Do not edit database migration files or drop core tables directly.
+  - All files must adhere to standard monorepo styling rules and preserve existing license headers.
+
+---
+
 <br /><br />
 
 <p align="center">
@@ -42,7 +105,7 @@ Getting started with Plane is simple. Choose the setup that works best for you:
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Docker               | [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://developers.plane.so/self-hosting/methods/docker-compose)         |
 | Kubernetes           | [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](https://developers.plane.so/self-hosting/methods/kubernetes) |
-| Managed hosting      | [<img alt="Deploy with Zenith" src="https://cdn.zenith.hosting/buttons/deploy-with-zenith.svg" height="40">](https://zenith.hosting/host/plane) |
+| Managed hosting      | [<img alt="Deploy with Zenith" src="https://cdn.zenith.hosting/buttons/deploy-with-zenith.svg" height="40">](https://zenith.hosting/host/plane)                                         |
 
 `Instance admins` can configure instance settings with [God mode](https://developers.plane.so/self-hosting/govern/instance-admin).
 

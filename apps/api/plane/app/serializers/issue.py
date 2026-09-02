@@ -88,7 +88,7 @@ class IssueCreateSerializer(BaseSerializer):
         source="parent", queryset=Issue.objects.all(), required=False, allow_null=True
     )
     label_ids = serializers.ListField(
-        child=serializers.PrimaryKeyRelatedField(queryset=Label.objects.all()),
+        child=serializers.UUIDField(),
         write_only=True,
         required=False,
     )
@@ -115,10 +115,26 @@ class IssueCreateSerializer(BaseSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        assignee_ids = self.initial_data.get("assignee_ids")
-        data["assignee_ids"] = assignee_ids if assignee_ids else []
-        label_ids = self.initial_data.get("label_ids")
-        data["label_ids"] = label_ids if label_ids else []
+        if hasattr(instance, "labels"):
+            data["label_ids"] = list(
+                instance.labels.filter(
+                    deleted_at__isnull=True,
+                    label_issue__deleted_at__isnull=True,
+                ).values_list("id", flat=True)
+            )
+        else:
+            label_ids = self.initial_data.get("label_ids")
+            data["label_ids"] = label_ids if label_ids else []
+
+        if hasattr(instance, "assignees"):
+            data["assignee_ids"] = list(
+                instance.assignees.filter(
+                    issue_assignee__deleted_at__isnull=True,
+                ).values_list("id", flat=True)
+            )
+        else:
+            assignee_ids = self.initial_data.get("assignee_ids")
+            data["assignee_ids"] = assignee_ids if assignee_ids else []
         return data
 
     def validate(self, attrs):
@@ -156,12 +172,11 @@ class IssueCreateSerializer(BaseSerializer):
             ).values_list("member_id", flat=True)
 
         # Validate labels are from project
-        if attrs.get("label_ids"):
-            label_ids = [label.id for label in attrs["label_ids"]]
+        if "label_ids" in attrs and attrs.get("label_ids") is not None:
             attrs["label_ids"] = list(
                 Label.objects.filter(
                     project_id=self.context.get("project_id"),
-                    id__in=label_ids,
+                    id__in=attrs["label_ids"],
                 ).values_list("id", flat=True)
             )
 
@@ -230,24 +245,54 @@ class IssueCreateSerializer(BaseSerializer):
             except IntegrityError:
                 pass
         else:
-            # Then assign it to default assignee, if it is a valid assignee
-            if (
-                default_assignee_id is not None
-                and ProjectMember.objects.filter(
-                    member_id=default_assignee_id,
-                    project_id=project_id,
-                    role__gte=15,
-                    is_active=True,
-                ).exists()
-            ):
-                try:
-                    IssueAssignee.objects.create(
-                        assignee_id=default_assignee_id,
-                        issue=issue,
+            # ORCA CUSTOM FEATURE: Default to assignees of user's last created issue with assignees in project
+            last_assignee_ids = []
+            user_id = created_by_id or (
+                self.context.get("request")
+                and getattr(self.context["request"], "user", None)
+                and getattr(self.context["request"].user, "id", None)
+            )
+            if user_id:
+                last_issue = (
+                    Issue.objects.filter(
+                        created_by_id=user_id,
                         project_id=project_id,
-                        workspace_id=workspace_id,
-                        created_by_id=created_by_id,
-                        updated_by_id=updated_by_id,
+                    )
+                    .exclude(pk=issue.pk)
+                    .order_by("-created_at")
+                    .first()
+                )
+                if last_issue:
+                    valid_member_ids = ProjectMember.objects.filter(
+                        project_id=project_id,
+                        role__gte=15,
+                        is_active=True,
+                    ).values_list("member_id", flat=True)
+                    last_assignee_ids = list(
+                        dict.fromkeys(
+                            IssueAssignee.objects.filter(
+                                issue=last_issue,
+                                project_id=project_id,
+                                assignee_id__in=valid_member_ids,
+                            ).values_list("assignee_id", flat=True)
+                        )
+                    )
+
+            if last_assignee_ids:
+                try:
+                    IssueAssignee.objects.bulk_create(
+                        [
+                            IssueAssignee(
+                                assignee_id=assignee_id,
+                                issue=issue,
+                                project_id=project_id,
+                                workspace_id=workspace_id,
+                                created_by_id=created_by_id,
+                                updated_by_id=updated_by_id,
+                            )
+                            for assignee_id in last_assignee_ids
+                        ],
+                        batch_size=10,
                     )
                 except IntegrityError:
                     pass
@@ -270,6 +315,10 @@ class IssueCreateSerializer(BaseSerializer):
                 )
             except IntegrityError:
                 pass
+
+        # Auto-apply conventional commit label if enabled for the project
+        from plane.utils.conventional_commits import apply_conventional_commit_label
+        apply_conventional_commit_label(issue)
 
         return issue
 
@@ -325,9 +374,20 @@ class IssueCreateSerializer(BaseSerializer):
             except IntegrityError:
                 pass
 
-        # Time updation occues even when other related models are updated
+        # Check if the title (name) was modified in this update
+        old_name = instance.name
+        name_updated = "name" in validated_data and validated_data["name"] != old_name
+
+        # Time updation occurs even when other related models are updated
         instance.updated_at = timezone.now()
-        return super().update(instance, validated_data)
+        updated_issue = super().update(instance, validated_data)
+
+        # Auto-apply conventional commit label only when the work item title was actually changed
+        if name_updated:
+            from plane.utils.conventional_commits import apply_conventional_commit_label
+            apply_conventional_commit_label(updated_issue, old_title=old_name)
+
+        return updated_issue
 
 
 class IssueActivitySerializer(BaseSerializer):

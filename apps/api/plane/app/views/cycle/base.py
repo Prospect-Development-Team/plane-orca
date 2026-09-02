@@ -51,6 +51,7 @@ from plane.db.models import (
     User,
     Project,
     UserRecentVisit,
+    State,
 )
 from plane.utils.analytics_plot import burndown_plot
 from plane.bgtasks.recent_visited_task import recent_visited_task
@@ -151,12 +152,30 @@ class CycleViewSet(BaseViewSet):
             )
             .annotate(
                 status=Case(
+                    # 1. If auto-complete is enabled, a cycle is COMPLETED if its end_date has passed.
                     When(
-                        Q(start_date__lte=current_time_in_utc) & Q(end_date__gte=current_time_in_utc),
+                        Q(project__custom_settings__cycle_auto_complete=True) & Q(end_date__lt=current_time_in_utc),
+                        then=Value("COMPLETED"),
+                    ),
+                    # 2. If auto-complete is disabled, a cycle is COMPLETED only if manually ended (marked completed in view_props).
+                    When(
+                        ~Q(project__custom_settings__cycle_auto_complete=True) & Q(view_props__completed=True),
+                        then=Value("COMPLETED"),
+                    ),
+                    # 3. UPCOMING if start_date is in the future.
+                    When(start_date__gt=current_time_in_utc, then=Value("UPCOMING")),
+                    # 4. CURRENT if start_date has passed (and it didn't match COMPLETED above).
+                    # A cycle with start_date set and no end_date is CURRENT.
+                    # Additionally, if auto-complete is disabled, cycles remain CURRENT even after their end_date passes (unless manually completed).
+                    When(
+                        Q(start_date__lte=current_time_in_utc) & (
+                            Q(end_date__isnull=True) |
+                            Q(end_date__gte=current_time_in_utc) |
+                            ~Q(project__custom_settings__cycle_auto_complete=True)
+                        ),
                         then=Value("CURRENT"),
                     ),
-                    When(start_date__gt=current_time_in_utc, then=Value("UPCOMING")),
-                    When(end_date__lt=current_time_in_utc, then=Value("COMPLETED")),
+                    # 5. DRAFT if start_date is null.
                     When(
                         Q(start_date__isnull=True) & Q(end_date__isnull=True),
                         then=Value("DRAFT"),
@@ -201,8 +220,12 @@ class CycleViewSet(BaseViewSet):
         current_time_in_utc = current_time_in_project_tz.astimezone(pytz.utc)
 
         # Current Cycle
+        # Orca Custom Override: Also include cycles started with no end_date (manually started, running indefinitely).
         if cycle_view == "current":
-            queryset = queryset.filter(start_date__lte=current_time_in_utc, end_date__gte=current_time_in_utc)
+            queryset = queryset.filter(
+                Q(start_date__lte=current_time_in_utc, end_date__gte=current_time_in_utc)
+                | Q(start_date__lte=current_time_in_utc, end_date__isnull=True)
+            )
 
             data = queryset.values(
                 # necessary fields
@@ -269,11 +292,18 @@ class CycleViewSet(BaseViewSet):
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def create(self, request, slug, project_id):
-        if (request.data.get("start_date", None) is None and request.data.get("end_date", None) is None) or (
-            request.data.get("start_date", None) is not None and request.data.get("end_date", None) is not None
-        ):
-            serializer = CycleWriteSerializer(data=request.data, context={"project_id": project_id})
-            if serializer.is_valid():
+        # Orca Custom Override: Allow cycles with only a start_date (no end_date) to support
+        # the manual start flow — cycles can be started without committing to an end date.
+        # Original check required both dates to be present or both null.
+        start_date = request.data.get("start_date", None)
+        end_date = request.data.get("end_date", None)
+        if end_date is not None and start_date is None:
+            return Response(
+                {"error": "A start date is required when an end date is provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = CycleWriteSerializer(data=request.data, context={"project_id": project_id})
+        if serializer.is_valid():
                 serializer.save(project_id=project_id, owned_by=request.user)
                 cycle = (
                     self.get_queryset()
@@ -325,12 +355,8 @@ class CycleViewSet(BaseViewSet):
                     origin=base_host(request=request, is_app=True),
                 )
                 return Response(cycle, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(
-                {"error": "Both start date and end date are either required or are to be null"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def partial_update(self, request, slug, project_id, pk):
@@ -344,22 +370,42 @@ class CycleViewSet(BaseViewSet):
 
         current_instance = json.dumps(CycleSerializer(cycle).data, cls=DjangoJSONEncoder)
 
-        request_data = request.data
-
-        if cycle.end_date is not None and cycle.end_date < timezone.now():
-            if "sort_order" in request_data:
-                # Can only change sort order for a completed cycle``
-                request_data = {"sort_order": request_data.get("sort_order", cycle.sort_order)}
-            else:
-                return Response(
-                    {"error": "The Cycle has already been completed so it cannot be edited"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
         serializer = CycleWriteSerializer(cycle, data=request.data, partial=True, context={"project_id": project_id})
         if serializer.is_valid():
             serializer.save()
-            cycle = queryset.values(
+
+            # ORCA CUSTOM FEATURE: Move unstarted issues in cycle to In Progress if requested
+            if request.data.get("set_in_progress", False):
+                in_progress_state = (
+                    State.objects.filter(project_id=project_id, group="started")
+                    .order_by("sequence")
+                    .first()
+                )
+                if in_progress_state:
+                    Issue.objects.filter(
+                        issue_cycle__cycle_id=pk,
+                        project_id=project_id,
+                        state__group__in=["backlog", "unstarted"],
+                    ).update(state_id=in_progress_state.id)
+
+            # ORCA CUSTOM FEATURE: Move incomplete issues in cycle to Completed if requested
+            if request.data.get("mark_completed", False):
+                completed_state = (
+                    State.objects.filter(project_id=project_id, group="completed")
+                    .order_by("sequence")
+                    .first()
+                )
+                if completed_state:
+                    Issue.objects.filter(
+                        issue_cycle__cycle_id=pk,
+                        project_id=project_id,
+                    ).exclude(
+                        state__group__in=["completed", "cancelled"]
+                    ).update(state_id=completed_state.id)
+            cycle = (
+                self.get_queryset()
+                .filter(workspace__slug=slug, project_id=project_id, pk=pk)
+                .values(
                 # necessary fields
                 "id",
                 "workspace_id",
@@ -384,7 +430,7 @@ class CycleViewSet(BaseViewSet):
                 "assignee_ids",
                 "status",
                 "created_by",
-            ).first()
+            ).first())
 
             # Fetch the project timezone
             project = Project.objects.get(id=self.kwargs.get("project_id"))
@@ -520,6 +566,17 @@ class CycleViewSet(BaseViewSet):
 class CycleDateCheckEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def post(self, request, slug, project_id):
+        """
+        Check if cycle dates intersect with existing cycles.
+        Custom override: If `parallel_cycles` is enabled for the project, bypass the check
+        and allow dates to overlap/intersect freely since multiple active cycles are supported.
+        """
+        project = Project.objects.filter(pk=project_id).first()
+        if project:
+            custom_settings = getattr(project, "custom_settings", None)
+            if custom_settings and custom_settings.parallel_cycles:
+                return Response({"status": True}, status=status.HTTP_200_OK)
+
         start_date = request.data.get("start_date", False)
         end_date = request.data.get("end_date", False)
         cycle_id = request.data.get("cycle_id")
@@ -709,7 +766,7 @@ class CycleProgressEndpoint(BaseAPIView):
                 total_estimate_points=Sum("value_as_float", default=Value(0), output_field=FloatField()),
             )
         )
-        if cycle.progress_snapshot:
+        if cycle.archived_at and cycle.progress_snapshot:
             backlog_issues = cycle.progress_snapshot.get("backlog_issues", 0)
             unstarted_issues = cycle.progress_snapshot.get("unstarted_issues", 0)
             started_issues = cycle.progress_snapshot.get("started_issues", 0)
@@ -818,7 +875,7 @@ class CycleAnalyticsEndpoint(BaseAPIView):
         else issues were not transferred to the new cycle then generate the stats from the cycle issue bridge tables
         """
 
-        if cycle.progress_snapshot:
+        if cycle.archived_at and cycle.progress_snapshot:
             distribution = cycle.progress_snapshot.get("distribution", {})
             return Response(
                 {

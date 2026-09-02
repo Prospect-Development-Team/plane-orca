@@ -16,7 +16,7 @@ type Props = {
   projectId: string;
   featureItem: any;
   value: boolean;
-  handleSubmit: (featureKey: string, featureProperty: string) => void;
+  handleSubmit: (featureKey: string, featureProperty: string, value: boolean) => void;
   disabled?: boolean;
 };
 
@@ -38,7 +38,7 @@ export function ProjectFeatureToggle(props: Props) {
   ) : (
     <ToggleSwitch
       value={value}
-      onChange={() => handleSubmit(featureItem?.key, featureItem?.property)}
+      onChange={() => handleSubmit(featureItem?.key, featureItem?.property, !value)}
       disabled={disabled}
       size="sm"
       data-ph-element={PROJECT_TRACKER_ELEMENTS.TOGGLE_FEATURE}

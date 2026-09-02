@@ -42,7 +42,6 @@ export interface IArchivedIssues extends IBaseIssuesStore {
 
   updateIssue: undefined;
   archiveIssue: undefined;
-  archiveBulkIssues: undefined;
   quickAddIssue: undefined;
 }
 
@@ -77,7 +76,7 @@ export class ArchivedIssues extends BaseIssuesStore implements IArchivedIssues {
    * @param projectId
    */
   fetchParentStats = async (workspaceSlug: string, projectId?: string) => {
-    projectId && this.rootIssueStore.rootStore.projectRoot.project.fetchProjectDetails(workspaceSlug, projectId);
+    if (projectId) this.rootIssueStore.rootStore.projectRoot.project.fetchProjectDetails(workspaceSlug, projectId);
   };
 
   /** */
@@ -203,6 +202,6 @@ export class ArchivedIssues extends BaseIssuesStore implements IArchivedIssues {
   // Setting them as undefined as they can not performed on Archived issues
   updateIssue = undefined;
   archiveIssue = undefined;
-  archiveBulkIssues = undefined;
+  archiveBulkIssues = async () => {};
   quickAddIssue = undefined;
 }

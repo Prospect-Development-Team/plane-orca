@@ -270,6 +270,41 @@ class ProjectListCreateAPIEndpoint(BaseAPIView):
                         ]
                     )
 
+                    # Initialize Project State Property & Project Label Property based on workspace settings
+                    from plane.db.models import (
+                        ProjectState,
+                        WorkspaceProjectStateSettings,
+                        ProjectStateProperty,
+                        WorkspaceProjectLabelSettings,
+                        ProjectLabelProperty,
+                    )
+                    from plane.app.views.project_state import sync_workspace_states_to_project
+                    from plane.app.views.project_label import sync_workspace_labels_to_project
+
+                    is_workspace_states_enabled = WorkspaceProjectStateSettings.objects.filter(
+                        workspace=serializer.instance.workspace, is_enabled=True
+                    ).exists()
+                    default_ws_state = ProjectState.objects.filter(
+                        workspace=serializer.instance.workspace, default=True
+                    ).first()
+                    ProjectStateProperty.objects.create(
+                        project=serializer.instance,
+                        is_enabled=is_workspace_states_enabled,
+                        state=default_ws_state,
+                    )
+                    if is_workspace_states_enabled:
+                        sync_workspace_states_to_project(serializer.instance.workspace, serializer.instance)
+
+                    is_workspace_labels_enabled = WorkspaceProjectLabelSettings.objects.filter(
+                        workspace=serializer.instance.workspace, is_enabled=True
+                    ).exists()
+                    ProjectLabelProperty.objects.create(
+                        project=serializer.instance,
+                        is_enabled=is_workspace_labels_enabled,
+                    )
+                    if is_workspace_labels_enabled:
+                        sync_workspace_labels_to_project(serializer.instance.workspace, serializer.instance)
+
                     project = self.get_queryset().filter(pk=serializer.instance.id).first()
 
                     # Defer the activity-log task until the surrounding

@@ -7,7 +7,7 @@
 import { observer } from "mobx-react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { Boxes, Share2, Star, User2 } from "lucide-react";
+import { Boxes, User2 } from "lucide-react";
 import { CheckIcon, CloseIcon } from "@plane/propel/icons";
 // components
 import { LogoSpinner } from "@/components/common/logo-spinner";
@@ -58,6 +58,7 @@ function WorkspaceInvitationPage() {
         } else {
           router.push("/");
         }
+        return null;
       })
       .catch((err: unknown) => console.error(err));
   };
@@ -71,6 +72,7 @@ function WorkspaceInvitationPage() {
       })
       .then(() => {
         router.push("/");
+        return null;
       })
       .catch((err: unknown) => console.error(err));
   };
@@ -111,12 +113,6 @@ function WorkspaceInvitationPage() {
               ) : (
                 <EmptySpaceItem Icon={Boxes} title="Continue to home" href="/" />
               )}
-              <EmptySpaceItem Icon={Star} title="Star us on GitHub" href="https://github.com/makeplane" />
-              <EmptySpaceItem
-                Icon={Share2}
-                title="Join our community of active creators"
-                href="https://forum.plane.so"
-              />
             </EmptySpace>
           )
         ) : (

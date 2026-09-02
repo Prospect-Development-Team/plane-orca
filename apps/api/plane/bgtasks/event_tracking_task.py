@@ -22,22 +22,7 @@ logger = logging.getLogger("plane.worker")
 
 
 def posthogConfiguration():
-    POSTHOG_API_KEY, POSTHOG_HOST = get_configuration_value(
-        [
-            {
-                "key": "POSTHOG_API_KEY",
-                "default": os.environ.get("POSTHOG_API_KEY", None),
-            },
-            {
-                "key": "POSTHOG_HOST",
-                "default": os.environ.get("POSTHOG_HOST", None),
-            },
-        ]
-    )
-    if POSTHOG_API_KEY and POSTHOG_HOST:
-        return POSTHOG_API_KEY, POSTHOG_HOST
-    else:
-        return None, None
+    return None, None
 
 
 def preprocess_data_properties(

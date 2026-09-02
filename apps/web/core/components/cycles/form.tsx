@@ -89,7 +89,7 @@ export function CycleForm(props: Props) {
                     }}
                     multiple={false}
                     buttonVariant="border-with-text"
-                    renderCondition={(projectId) => !!projectsWithCreatePermissions?.[projectId]}
+                    renderCondition={(projId) => !!projectsWithCreatePermissions?.[projId]}
                     tabIndex={getIndex("cover_image")}
                   />
                 </div>
@@ -123,7 +123,6 @@ export function CycleForm(props: Props) {
                   onChange={onChange}
                   hasError={Boolean(errors?.name)}
                   tabIndex={getIndex("description")}
-                  autoFocus
                 />
               )}
             />
@@ -158,7 +157,6 @@ export function CycleForm(props: Props) {
                     <DateRangeDropdown
                       buttonVariant="border-with-text"
                       className="h-7"
-                      minDate={new Date()}
                       value={{
                         from: getDate(startDateValue),
                         to: getDate(endDateValue),

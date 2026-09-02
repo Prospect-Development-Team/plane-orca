@@ -44,6 +44,7 @@ export interface ICycleStore {
   currentProjectCompletedCycleIds: string[] | null;
   currentProjectIncompleteCycleIds: string[] | null;
   currentProjectActiveCycleId: string | null;
+  currentProjectActiveCycleIds: string[];
   currentProjectArchivedCycleIds: string[] | null;
   currentProjectActiveCycle: ICycle | null;
 
@@ -87,6 +88,19 @@ export interface ICycleStore {
     data: Partial<ICycle>
   ) => Promise<ICycle>;
   deleteCycle: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<void>;
+  // manual start / stop (orca)
+  startCycle: (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { set_in_progress?: boolean }
+  ) => Promise<ICycle>;
+  endCycle: (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { mark_completed?: boolean }
+  ) => Promise<ICycle>;
   // favorites
   addCycleToFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<any>;
   removeCycleFromFavorites: (workspaceSlug: string, projectId: string, cycleId: string) => Promise<void>;
@@ -128,6 +142,7 @@ export class CycleStore implements ICycleStore {
       currentProjectCompletedCycleIds: computed,
       currentProjectIncompleteCycleIds: computed,
       currentProjectActiveCycleId: computed,
+      currentProjectActiveCycleIds: computed,
       currentProjectArchivedCycleIds: computed,
       currentProjectActiveCycle: computed,
 
@@ -191,16 +206,18 @@ export class CycleStore implements ICycleStore {
   }
 
   /**
-   * returns all incomplete cycle ids for a project
+   * @description Returns all incomplete cycle IDs for a project (not completed, not archived).
+   * Orca Custom Override: Includes active ('current'), upcoming, and draft cycles.
    */
   get currentProjectIncompleteCycleIds() {
     const projectId = this.rootStore.router.projectId;
     if (!projectId || !this.fetchedMap[projectId]) return null;
     let incompleteCycles = Object.values(this.cycleMap ?? {}).filter((c) => {
-      const endDate = getDate(c.end_date);
-      const hasEndDatePassed = endDate && isPast(endDate);
+      const status = c.status?.toLowerCase();
       return (
-        c.project_id === projectId && !hasEndDatePassed && !c?.archived_at && c.status?.toLowerCase() !== "completed"
+        c.project_id === projectId &&
+        !c?.archived_at &&
+        (status === "current" || status === "upcoming" || status === "draft")
       );
     });
     incompleteCycles = sortBy(incompleteCycles, [(c) => c.sort_order]);
@@ -223,6 +240,21 @@ export class CycleStore implements ICycleStore {
   }
 
   /**
+   * @description Orca Custom Override: Returns all active parallel cycle IDs for a project.
+   * Filters all cycles in cycleMap matching the current projectId that are active ('current').
+   * @returns {string[]} List of active cycle IDs.
+   */
+  get currentProjectActiveCycleIds() {
+    const projectId = this.rootStore.router.projectId;
+    if (!projectId) return [];
+    return Object.keys(this.cycleMap ?? {}).filter(
+      (cycleId) =>
+        this.cycleMap?.[cycleId]?.project_id === projectId &&
+        this.cycleMap?.[cycleId]?.status?.toLowerCase() === "current"
+    );
+  }
+
+  /**
    * returns all archived cycle ids for a project
    */
   get currentProjectArchivedCycleIds() {
@@ -236,9 +268,14 @@ export class CycleStore implements ICycleStore {
     return archivedCycleIds;
   }
 
+  /**
+   * @description Returns active cycle details for a project.
+   * If parallel cycles are enabled, this defaults to the first active cycle retrieved by `currentProjectActiveCycleId`.
+   * @returns {ICycle | null} Active cycle details or null.
+   */
   get currentProjectActiveCycle() {
     const projectId = this.rootStore.router.projectId;
-    if (!projectId && !this.currentProjectActiveCycleId) return null;
+    if (!projectId || !this.currentProjectActiveCycleId) return null;
     return this.cycleMap?.[this.currentProjectActiveCycleId!] ?? null;
   }
 
@@ -601,7 +638,7 @@ export class CycleStore implements ICycleStore {
         set(this.cycleMap, [cycleId], { ...this.cycleMap?.[cycleId], ...data });
       });
       const response = await this.cycleService.patchCycle(workspaceSlug, projectId, cycleId, data);
-      this.fetchCycleDetails(workspaceSlug, projectId, cycleId);
+      await this.fetchCycleDetails(workspaceSlug, projectId, cycleId);
       return response;
     } catch (error) {
       console.log("Failed to patch cycle from cycle store");
@@ -617,14 +654,69 @@ export class CycleStore implements ICycleStore {
    * @param projectId
    * @param cycleId
    */
-  deleteCycle = async (workspaceSlug: string, projectId: string, cycleId: string) =>
-    await this.cycleService.deleteCycle(workspaceSlug, projectId, cycleId).then(() => {
-      runInAction(() => {
-        delete this.cycleMap[cycleId];
-        delete this.activeCycleIdMap[cycleId];
-        if (this.rootStore.favorite.entityMap[cycleId]) this.rootStore.favorite.removeFavoriteFromStore(cycleId);
-      });
+  deleteCycle = async (workspaceSlug: string, projectId: string, cycleId: string) => {
+    await this.cycleService.deleteCycle(workspaceSlug, projectId, cycleId);
+    runInAction(() => {
+      delete this.cycleMap[cycleId];
+      delete this.activeCycleIdMap[cycleId];
+      if (this.rootStore.favorite.entityMap[cycleId]) this.rootStore.favorite.removeFavoriteFromStore(cycleId);
     });
+  };
+
+  /**
+   * @description Orca Custom: Manually starts a cycle by setting start_date to today.
+   * Moves the cycle from upcoming/draft to active (CURRENT) status without requiring an end date.
+   * @param workspaceSlug
+   * @param projectId
+   * @param cycleId
+   * @returns updated ICycle
+   */
+  startCycle = async (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { set_in_progress?: boolean }
+  ): Promise<ICycle> => {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const payload: any = { start_date: today };
+    if (options?.set_in_progress) {
+      payload.set_in_progress = true;
+    }
+    const res = await this.updateCycleDetails(workspaceSlug, projectId, cycleId, payload);
+    if (options?.set_in_progress) {
+      this.rootStore.issue.issues.fetchIssues(workspaceSlug, projectId, "PROJECT");
+    }
+    return res;
+  };
+
+  /**
+   * @description Orca Custom: Manually ends a cycle by setting end_date to today.
+   * Moves the cycle from active (CURRENT) to COMPLETED status.
+   * @param workspaceSlug
+   * @param projectId
+   * @param cycleId
+   * @returns updated ICycle
+   */
+  endCycle = async (
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+    options?: { mark_completed?: boolean }
+  ): Promise<ICycle> => {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const payload: any = {
+      end_date: today,
+      manually_completed: true,
+    };
+    if (options?.mark_completed) {
+      payload.mark_completed = true;
+    }
+    const res = await this.updateCycleDetails(workspaceSlug, projectId, cycleId, payload);
+    if (options?.mark_completed) {
+      this.rootStore.issue.issues.fetchIssues(workspaceSlug, projectId, "PROJECT");
+    }
+    return res;
+  };
 
   /**
    * @description adds a cycle to favorites
@@ -688,17 +780,15 @@ export class CycleStore implements ICycleStore {
   archiveCycle = async (workspaceSlug: string, projectId: string, cycleId: string) => {
     const cycleDetails = this.getCycleById(cycleId);
     if (cycleDetails?.archived_at) return;
-    await this.cycleArchiveService
-      .archiveCycle(workspaceSlug, projectId, cycleId)
-      .then((response) => {
-        runInAction(() => {
-          set(this.cycleMap, [cycleId, "archived_at"], response.archived_at);
-          if (this.rootStore.favorite.entityMap[cycleId]) this.rootStore.favorite.removeFavoriteFromStore(cycleId);
-        });
-      })
-      .catch((error) => {
-        console.error("Failed to archive cycle in cycle store", error);
+    try {
+      const response = await this.cycleArchiveService.archiveCycle(workspaceSlug, projectId, cycleId);
+      runInAction(() => {
+        set(this.cycleMap, [cycleId, "archived_at"], response.archived_at);
+        if (this.rootStore.favorite.entityMap[cycleId]) this.rootStore.favorite.removeFavoriteFromStore(cycleId);
       });
+    } catch (error) {
+      console.error("Failed to archive cycle in cycle store", error);
+    }
   };
 
   /**
@@ -711,15 +801,13 @@ export class CycleStore implements ICycleStore {
   restoreCycle = async (workspaceSlug: string, projectId: string, cycleId: string) => {
     const cycleDetails = this.getCycleById(cycleId);
     if (!cycleDetails?.archived_at) return;
-    await this.cycleArchiveService
-      .restoreCycle(workspaceSlug, projectId, cycleId)
-      .then(() => {
-        runInAction(() => {
-          set(this.cycleMap, [cycleId, "archived_at"], null);
-        });
-      })
-      .catch((error) => {
-        console.error("Failed to restore cycle in cycle store", error);
+    try {
+      await this.cycleArchiveService.restoreCycle(workspaceSlug, projectId, cycleId);
+      runInAction(() => {
+        set(this.cycleMap, [cycleId, "archived_at"], null);
       });
+    } catch (error) {
+      console.error("Failed to restore cycle in cycle store", error);
+    }
   };
 }

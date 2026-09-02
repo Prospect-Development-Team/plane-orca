@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { XCircle, ArchiveRestoreIcon } from "lucide-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -12,7 +12,8 @@ import { LinkIcon, CopyIcon, NewTabIcon, EditIcon, ArchiveIcon, TrashIcon } from
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EIssuesStoreType, TIssue } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
-import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
+import { copyUrlToClipboard, generateWorkItemLink, copyTextToClipboard, htmlToPlainText } from "@plane/utils";
+import { IssueService } from "@/services/issue";
 import { createCopyMenuWithDuplication } from "./copy-menu-helper";
 
 // Generic helper function to handle optional function calls gracefully
@@ -111,29 +112,113 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
       handleOptionalAction(handleRestore, "Restore");
       return;
     }
-    await handleRestore()
-      // oxlint-disable-next-line promise/always-return
-      .then(() => {
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: "Restore success",
-          message: "Your work item can be found in project work items.",
-        });
-      })
-      .catch(() => {
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: "Work item could not be restored. Please try again.",
-        });
+    try {
+      await handleRestore();
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Restore success",
+        message: "Your work item can be found in project work items.",
       });
+    } catch {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: "Work item could not be restored. Please try again.",
+      });
+    }
   };
+
+  /**
+   * @description Orca Custom Helper: Resolves the issue description HTML and converts it to clean formatted plain text.
+   * If the description is not loaded in the lightweight issue object, fetches the full issue from the API.
+   * @returns {Promise<string>} Clean plain text description with preserved line breaks.
+   */
+  const getOrFetchDescription = async (): Promise<string> => {
+    if (issue?.description_html !== undefined) {
+      return htmlToPlainText(issue.description_html);
+    }
+    if (!workspaceSlug || !issue?.project_id || !issue?.id) {
+      return "";
+    }
+    try {
+      const issueService = new IssueService();
+      const fullIssue = await issueService.retrieve(workspaceSlug, issue.project_id, issue.id);
+      return htmlToPlainText(fullIssue?.description_html || "");
+    } catch (e) {
+      console.error("Failed to fetch issue description", e);
+      return "";
+    }
+  };
+
+  /**
+   * @description Orca Custom Handler: Copies the issue title to the clipboard.
+   */
+  const handleCopyIssueTitle = () =>
+    copyTextToClipboard(issue?.name || "").then(() =>
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Title copied",
+        message: "Work item title copied to clipboard",
+      })
+    );
+
+  /**
+   * @description Orca Custom Handler: Copies the issue description (as plain text) to the clipboard.
+   */
+  const handleCopyIssueDescription = async () => {
+    const descriptionText = await getOrFetchDescription();
+    if (descriptionText === "") {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "No description",
+        message: "This work item has no description.",
+      });
+      return;
+    }
+    return copyTextToClipboard(descriptionText).then(() =>
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Description copied",
+        message: "Work item description copied to clipboard",
+      })
+    );
+  };
+
+  /**
+   * @description Orca Custom Handler: Smart copy for issue details.
+   * Copies title on the first line and formatted description on following lines to clipboard,
+   * or just the title if no description exists.
+   * @returns {Promise<void>}
+   */
+  const handleCopyIssueDetails = async () => {
+    const titleText = (issue?.name || "").trim();
+    const descriptionText = await getOrFetchDescription();
+    const textToCopy = descriptionText ? `${titleText}\n\n${descriptionText}` : titleText;
+    return copyTextToClipboard(textToCopy).then(() =>
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: descriptionText ? "Title & description copied" : "Title copied",
+        message: descriptionText
+          ? "Work item title & description copied to clipboard"
+          : "Work item title copied to clipboard",
+      })
+    );
+  };
+
+  /**
+   * @description Orca Custom Handler: Copies both issue title and description, separated by newlines, to the clipboard.
+   */
+  const handleCopyIssueTitleAndDescription = handleCopyIssueDetails;
 
   return {
     workItemLink,
     handleCopyIssueLink,
     handleOpenInNewTab,
     handleIssueRestore,
+    handleCopyIssueTitle,
+    handleCopyIssueDescription,
+    handleCopyIssueTitleAndDescription,
+    handleCopyIssueDetails,
   };
 };
 
@@ -205,6 +290,18 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     action: actionHandlers.handleCopyIssueLink,
   });
 
+  /**
+   * @description Orca Custom Menu Item: Returns a smart copy details menu item.
+   * Copies the title and description (if available) directly to the clipboard without a dropdown submenu.
+   */
+  const createCopyDetailsMenuItem = (): TContextMenuItem => ({
+    key: "copy-details",
+    title: t("common.actions.copy_details") || "Copy details",
+    icon: CopyIcon,
+    action: actionHandlers.handleCopyIssueDetails,
+    shouldRender: true,
+  });
+
   const createRemoveFromCycleMenuItem = (): TContextMenuItem => ({
     key: "remove-from-cycle",
     title: "Remove from cycle",
@@ -257,6 +354,8 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     createCopyMenuItem,
     createOpenInNewTabMenuItem,
     createCopyLinkMenuItem,
+    createCopyDetailsMenuItem,
+    createCopySubmenuItem: createCopyDetailsMenuItem,
     createRemoveFromCycleMenuItem,
     createRemoveFromModuleMenuItem,
     createArchiveMenuItem,
@@ -275,6 +374,7 @@ export const useProjectIssueMenuItems = (props: MenuItemFactoryProps): TContextM
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -289,12 +389,14 @@ export const useWorkItemDetailMenuItems = (props: MenuItemFactoryProps): TContex
     () => [
       factory.createCopyMenuItem(props.workspaceSlug),
       factory.createOpenInNewTabMenuItem(),
+      factory.createCopyLinkMenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createRestoreMenuItem(),
       factory.createDeleteMenuItem(),
     ],
     // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps
-    [factory]
+    [factory, props.workspaceSlug]
   );
 };
 
@@ -307,6 +409,7 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -315,15 +418,16 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
 };
 
 export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuItem[] => {
+  const { setIssueToEdit, issue, cycleId, setCreateUpdateIssueModal } = props;
   const factory = useMenuItemFactory(props);
 
-  const customEditAction = () => {
-    props.setIssueToEdit({
-      ...props.issue,
-      cycle_id: props.cycleId ?? null,
+  const customEditAction = useCallback(() => {
+    setIssueToEdit({
+      ...issue,
+      cycle_id: cycleId ?? null,
     });
-    props.setCreateUpdateIssueModal(true);
-  };
+    setCreateUpdateIssueModal(true);
+  }, [setIssueToEdit, issue, cycleId, setCreateUpdateIssueModal]);
 
   return useMemo(
     () => [
@@ -331,25 +435,27 @@ export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMen
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createRemoveFromCycleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
     // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps
-    [factory, props.cycleId]
+    [factory, customEditAction]
   );
 };
 
 export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuItem[] => {
+  const { setIssueToEdit, issue, moduleId, setCreateUpdateIssueModal } = props;
   const factory = useMenuItemFactory(props);
 
-  const customEditAction = () => {
-    props.setIssueToEdit({
-      ...props.issue,
-      module_ids: props.moduleId ? [props.moduleId] : [],
+  const customEditAction = useCallback(() => {
+    setIssueToEdit({
+      ...issue,
+      module_ids: moduleId ? [moduleId] : [],
     });
-    props.setCreateUpdateIssueModal(true);
-  };
+    setCreateUpdateIssueModal(true);
+  }, [setIssueToEdit, issue, moduleId, setCreateUpdateIssueModal]);
 
   return useMemo(
     () => [
@@ -357,12 +463,13 @@ export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMe
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createRemoveFromModuleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
     // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps
-    [factory, props.moduleId]
+    [factory, customEditAction]
   );
 };
 
@@ -374,6 +481,7 @@ export const useArchivedIssueMenuItems = (props: MenuItemFactoryProps): TContext
       factory.createRestoreMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyDetailsMenuItem(),
       factory.createDeleteMenuItem(),
     ],
     [factory]

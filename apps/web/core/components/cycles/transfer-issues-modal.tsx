@@ -8,9 +8,11 @@ import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { AlertCircle } from "lucide-react";
-import { SearchIcon, CycleIcon, TransferIcon, CloseIcon } from "@plane/propel/icons";
+import { SearchIcon, TransferIcon, CloseIcon, CycleGroupIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { EIssuesStoreType } from "@plane/types";
+import type { TCycleGroups } from "@plane/types";
+import { CYCLE_STATUS } from "@plane/constants";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 import { useCycle } from "@/hooks/store/use-cycle";
 import { useIssues } from "@/hooks/store/use-issues";
@@ -27,7 +29,7 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
   const [query, setQuery] = useState("");
 
   // store hooks
-  const { currentProjectIncompleteCycleIds, getCycleById, fetchActiveCycleProgress } = useCycle();
+  const { currentProjectIncompleteCycleIds, getCycleById, fetchActiveCycleProgress, fetchCycleDetails } = useCycle();
   const {
     issues: { transferIssuesFromCycle },
   } = useIssues(EIssuesStoreType.CYCLE);
@@ -37,22 +39,21 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
   const transferIssue = async (payload: { new_cycle_id: string }) => {
     if (!workspaceSlug || !projectId || !cycleId) return;
 
-    await transferIssuesFromCycle(workspaceSlug.toString(), projectId.toString(), cycleId.toString(), payload)
-      .then(async () => {
-        setToast({
-          type: TOAST_TYPE.SUCCESS,
-          title: "Success!",
-          message: "Work items have been transferred successfully",
-        });
-        await getCycleDetails(payload.new_cycle_id);
-      })
-      .catch(() => {
-        setToast({
-          type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: "Unable to transfer work items. Please try again.",
-        });
+    try {
+      await transferIssuesFromCycle(workspaceSlug.toString(), projectId.toString(), cycleId.toString(), payload);
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: "Success!",
+        message: "Work items have been transferred successfully",
       });
+      await getCycleDetails(payload.new_cycle_id);
+    } catch {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: "Unable to transfer work items. Please try again.",
+      });
+    }
   };
 
   /**To update issue counts in target cycle and current cycle */
@@ -60,6 +61,8 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
     const cyclesFetch = [
       fetchActiveCycleProgress(workspaceSlug.toString(), projectId.toString(), cycleId),
       fetchActiveCycleProgress(workspaceSlug.toString(), projectId.toString(), newCycleId),
+      fetchCycleDetails(workspaceSlug.toString(), projectId.toString(), cycleId),
+      fetchCycleDetails(workspaceSlug.toString(), projectId.toString(), newCycleId),
     ];
     await Promise.all(cyclesFetch).catch((error) => {
       setToast({
@@ -73,7 +76,7 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
   const filteredOptions = currentProjectIncompleteCycleIds?.filter((optionId) => {
     const cycleDetails = getCycleById(optionId);
 
-    return cycleDetails?.name?.toLowerCase().includes(query?.toLowerCase());
+    return optionId !== cycleId && cycleDetails?.name?.toLowerCase().includes(query?.toLowerCase());
   });
 
   return (
@@ -82,7 +85,7 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
         <div className="flex items-center justify-between px-5">
           <div className="flex items-center gap-1">
             <TransferIcon className="w-5 fill-primary" />
-            <h4 className="text-18 font-medium text-primary">Transfer work items</h4>
+            <h4 className="text-18 font-medium text-primary">Transfer incomplete work items</h4>
           </div>
           <button onClick={handleClose}>
             <CloseIcon className="h-4 w-4" />
@@ -105,6 +108,12 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
 
                 if (!cycleDetails) return;
 
+                const cycleStatus = cycleDetails.status
+                  ? (cycleDetails.status.toLocaleLowerCase() as TCycleGroups)
+                  : "draft";
+                const statusDetails = CYCLE_STATUS.find((s) => s.value === cycleStatus);
+                const statusLabel = cycleStatus === "current" ? "active" : cycleStatus;
+
                 return (
                   <button
                     key={optionId}
@@ -116,12 +125,14 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
                       handleClose();
                     }}
                   >
-                    <CycleIcon className="h-5 w-5" />
+                    <CycleGroupIcon cycleGroup={cycleStatus} className="h-5 w-5" />
                     <div className="flex w-full justify-between truncate">
                       <span className="truncate">{cycleDetails?.name}</span>
                       {cycleDetails.status && (
-                        <span className="flex flex-shrink-0 items-center rounded-full bg-layer-1 px-2 capitalize">
-                          {cycleDetails.status.toLocaleLowerCase()}
+                        <span
+                          className={`flex flex-shrink-0 items-center rounded-full px-2 text-11 font-medium capitalize ${statusDetails?.bgColor || "bg-layer-1"} ${statusDetails?.textColor || "text-secondary"}`}
+                        >
+                          {statusLabel}
                         </span>
                       )}
                     </div>
@@ -132,7 +143,7 @@ export const TransferIssuesModal = observer(function TransferIssuesModal(props: 
               <div className="flex w-full items-center justify-center gap-4 p-5 text-13">
                 <AlertCircle className="h-3.5 w-3.5 text-secondary" />
                 <span className="text-center text-secondary">
-                  You don’t have any current cycle. Please create one to transfer the work items.
+                  You don’t have any current cycle. Please create one to transfer the incomplete work items.
                 </span>
               </div>
             )

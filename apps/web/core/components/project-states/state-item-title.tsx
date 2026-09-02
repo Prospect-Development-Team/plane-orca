@@ -40,7 +40,7 @@ export const StateItemTitle = observer(function StateItemTitle(props: TStateItem
   const { getStatePercentageInGroup } = useProjectState();
   // derived values
   const statePercentage = getStatePercentageInGroup(state.id);
-  const percentage = statePercentage ? statePercentage / 100 : undefined;
+  const percentage = statePercentage !== undefined && statePercentage > 0 ? statePercentage / 100 : undefined;
 
   return (
     <div className="flex w-full items-center justify-between gap-2">
@@ -67,7 +67,7 @@ export const StateItemTitle = observer(function StateItemTitle(props: TStateItem
           <div className="flex-shrink-0 text-11 transition-all">
             <StateMarksAsDefault
               stateId={state.id}
-              isDefault={state.default ? true : false}
+              isDefault={!!state.default}
               markStateAsDefaultCallback={props.stateOperationsCallbacks.markStateAsDefault}
             />
           </div>
