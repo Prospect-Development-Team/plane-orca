@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.4.1-plane.1.4.1...v1.5.0) (2026-09-02)
+
+
+### 🔧 Chores & Maintenance
+
+* **orca:** update versioning schema to standard semantic versioning and reflect in configuration ([95731b4](https://github.com/Prospect-Development-Team/plane-orca/commit/95731b41198ae8b8bb3ae3347f8ae26ffb54fa3e))
+
+
+### ⚙️ Continuous Integration
+
+* **orca:** integrate release-please and parallelize production sync with image builds in CI workflow ([6d62a8d](https://github.com/Prospect-Development-Team/plane-orca/commit/6d62a8d24526764c1c4bdcf833926273239ef0d6))
+* **orca:** refactor production workflow to build directly from prod and integrate Release Please ([2f4fdfd](https://github.com/Prospect-Development-Team/plane-orca/commit/2f4fdfd353011231ab82656988cd168cd6c7ee14))
+
 ## [1.4.1-plane.1.4.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.4.0-plane.1.4.1...v1.4.1-plane.1.4.1) (2026-09-02)
 
 
