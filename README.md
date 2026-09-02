@@ -1,7 +1,7 @@
-# 🐋 Plane Orca (Custom Fork)
+# 🐋 Plane Orca
 
 > [!IMPORTANT]
-> **Plane Orca** is our customized team fork of upstream [Plane Community Edition](https://github.com/makeplane/plane).
+> **Plane Orca** is a [Plane CE](https://github.com/makeplane/plane) fork tailored for Prospect Development Team (PDT).
 
 ### ✨ Fork Features
 
