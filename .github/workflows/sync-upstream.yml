@@ -80,20 +80,32 @@ jobs:
 
           REPO="${{ github.repository }}"
 
+          # Extract upstream Plane version from package.json
+          UPSTREAM_VER=$(git show upstream/master:package.json 2>/dev/null | python3 -c "import sys, json; v=json.load(sys.stdin).get('version',''); print(f'v{v.lstrip(\"v\")}' if v else '')" 2>/dev/null || true)
+          echo "Detected upstream Plane version: $UPSTREAM_VER"
+
+          if [ -n "$UPSTREAM_VER" ]; then
+            PR_TITLE="chore(orca): sync upstream master $UPSTREAM_VER into stage"
+          else
+            PR_TITLE="chore(orca): sync upstream master into stage"
+          fi
+
           # Check if an open PR from upstream to stage already exists
           EXISTING_PR=$(gh pr list --repo "$REPO" --base stage --head upstream --state open --json number --jq '.[0].number // empty')
 
           if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
             echo "PR #$EXISTING_PR from upstream to stage is already open."
+            echo "Updating PR #$EXISTING_PR title to: $PR_TITLE"
+            gh api -X PATCH "repos/$REPO/pulls/$EXISTING_PR" -f title="$PR_TITLE" || true
             echo "Pushing new commits to upstream automatically refreshed the PR."
           else
             echo "Creating a new PR from upstream into stage..."
-            PR_BODY=$(printf "### Automated Upstream Sync\n\nAutomated sync detected **%s** new commit(s) from \`makeplane/plane:master\`.\n\n#### Upstream Details:\n- **Upstream Repository**: https://github.com/makeplane/plane\n- **Source Branch**: \`upstream\` (tracking \`makeplane/plane:master\`)\n- **Target Branch**: \`stage\`\n\n#### Next Steps:\n1. Review the commits and resolve any merge conflicts if indicated.\n2. Verify changes on Staging before merging into \`stage\`.\n" "$NEW_COMMITS")
+            PR_BODY=$(printf "### Automated Upstream Sync\n\nAutomated sync detected new changes from \`makeplane/plane:master\` (Upstream Version: **%s**).\n\n#### Upstream Details:\n- **Upstream Repository**: https://github.com/makeplane/plane\n- **Upstream Version**: %s\n- **Source Branch**: \`upstream\` (tracking \`makeplane/plane:master\`)\n- **Target Branch**: \`stage\`\n\n#### Next Steps:\n1. Review the commits and resolve any merge conflicts if indicated.\n2. Verify changes on Staging before merging into \`stage\`.\n" "${UPSTREAM_VER:-unknown}" "${UPSTREAM_VER:-unknown}")
 
             gh pr create \
               --repo "$REPO" \
               --base stage \
               --head upstream \
-              --title "chore(orca): sync upstream master into stage ($NEW_COMMITS new commits)" \
+              --title "$PR_TITLE" \
               --body "$PR_BODY"
           fi
