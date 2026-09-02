@@ -44,7 +44,7 @@ All changes must follow the upstream compatibility model detailed in [FORK.md](.
   - _Backend_: NEVER delete database migration files or drop core tables directly to disable a feature.
 - **Database Schema**: Do not modify core database tables. Prefer storing metadata in JSON fields or creating a separate relational sidecar model (e.g. `CustomIssueProperties`) to avoid migration conflicts.
 - **Custom API Routes**: Register custom endpoints under a unique routing prefix (e.g., `/api/v1/custom/`) rather than modifying standard Plane route registries directly.
-- **Versioning**: Tag custom releases using the format `v[ForkVersion]-plane.[UpstreamVersion]` (e.g. `v1.0.0-plane.1.3.1`) to track both upstream and custom releases.
+- **Versioning**: Tag custom releases using standard Semantic Versioning (e.g. `v1.4.0`) to track fork releases cleanly. Upstream Plane versions are tracked independently in `apps/web/package.json` and through upstream sync PRs.
 - **Commit Prefixes**: Use standard Conventional Commit prefixes with `orca` scoping to enable accurate release-please version bumping and changelog grouping:
   - `feat(orca): [short description]` — Custom features, integrations, or sidecars. (Minor bump)
   - `fix(orca): [short description]` — Bug fixes for custom code. (Patch bump)
