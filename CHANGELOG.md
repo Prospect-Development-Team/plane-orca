@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.1-plane.1.4.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.4.0-plane.1.4.1...v1.4.1-plane.1.4.1) (2026-09-02)
+
+
+### 🔧 Chores & Maintenance
+
+* **orca:** include upstream version in sync PR title ([e4394ce](https://github.com/Prospect-Development-Team/plane-orca/commit/e4394cec5003699e7ff117c077de59e6dd6caf22))
+* **orca:** sync upstream master v1.4.2 into stage ([0c7052b](https://github.com/Prospect-Development-Team/plane-orca/commit/0c7052b23cee363daaea39cf5196cebbd2d17f56))
+
+
+### ⚙️ Continuous Integration
+
+* **orca:** add automated workflow to sync upstream master and manage PRs to stage ([25db999](https://github.com/Prospect-Development-Team/plane-orca/commit/25db99971d535a375ceba90dfe80260f18cca016))
+* **orca:** grant write permissions for contents and packages in production workflow ([1f624a8](https://github.com/Prospect-Development-Team/plane-orca/commit/1f624a8f76d3607eed7636353210665960678e60))
+* **orca:** restrict stage docker builds and deployments to pushes only ([37a73f4](https://github.com/Prospect-Development-Team/plane-orca/commit/37a73f48be785b2b53ab368ea3d3c5c04f0bf5a8))
+* **orca:** update sync PR title format to sync upstream &lt;version&gt; ([63339cb](https://github.com/Prospect-Development-Team/plane-orca/commit/63339cba98f5f54e80ce768101a58b733ab0b458))
+
 ## [1.4.0-plane.1.4.1](https://github.com/Prospect-Development-Team/plane-orca/compare/v1.3.0-plane.1.4.1...v1.4.0-plane.1.4.1) (2026-08-22)
 
 
