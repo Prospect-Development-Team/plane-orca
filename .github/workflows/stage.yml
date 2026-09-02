@@ -46,6 +46,7 @@ env:
 jobs:
   changes:
     name: Check Code Changes
+    if: github.event_name != 'pull_request' || (github.event.pull_request.head.ref != 'upstream' && !startsWith(github.event.pull_request.head.ref, 'sync/'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,7 +123,7 @@ jobs:
   # ---------------------------------------------------------------------------
   labeler:
     name: Auto Label & Template PR
-    if: github.event_name == 'pull_request' && !startsWith(github.event.pull_request.head.ref, 'release-please--') && github.event.pull_request.head.ref != 'stage' && github.event.pull_request.user.login != 'github-actions[bot]'
+    if: github.event_name == 'pull_request' && !startsWith(github.event.pull_request.head.ref, 'release-please--') && github.event.pull_request.head.ref != 'stage' && github.event.pull_request.head.ref != 'upstream' && !startsWith(github.event.pull_request.head.ref, 'sync/') && github.event.pull_request.user.login != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -206,7 +207,7 @@ jobs:
   build-push:
     name: Build & Push ${{ matrix.service }}
     needs: [ci, changes]
-    if: ${{ needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -284,7 +285,7 @@ jobs:
   deploy:
     name: Deploy to Stage (Coolify)
     needs: [build-push, changes]
-    if: ${{ always() && (needs.build-push.result == 'success' || needs.build-push.result == 'skipped') && (needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch') && !failure() && !cancelled() }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && always() && (needs.build-push.result == 'success' || needs.build-push.result == 'skipped') && (needs.changes.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch') && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     environment: stage
     steps:
