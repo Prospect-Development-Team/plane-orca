@@ -1,6 +1,6 @@
-# Fork Customization & Upstream Compatibility Guide
+# Fork Guidelines & Upstream Syncing Strategy
 
-This repository is a custom fork of **Plane (Community Edition)**, optimized for our team's workflow. To ensure that we can easily merge upstream updates from the main Plane repository with minimal merge conflicts, all developers and AI agents must adhere to the following principles.
+This repository is a [Plane CE](https://github.com/makeplane/plane) fork tailored for Prospect Development Team (PDT). To ensure that we can easily merge upstream updates from the main Plane repository with minimal merge conflicts, all developers and AI agents must adhere to the following principles.
 
 ---
 
