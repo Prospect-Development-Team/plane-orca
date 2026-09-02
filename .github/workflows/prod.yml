@@ -1,24 +1,30 @@
 # =============================================================================
-# Prod: Build & Deploy (Plane Orca Production)
+# Production CI/CD: Release, Build & Deploy (Plane Orca)
 # =============================================================================
 #
-# When: You push to the "prod" branch with a release commit or trigger manually.
+# When: Push to the "prod" branch (or manual trigger via workflow_dispatch).
 # Where: Runs on GitHub Actions runners (ubuntu-latest).
 #
 # What happens:
-#   • Build & Push: Builds the web, api, space, admin, live, and proxy images
-#     directly from the verified release commit on "prod" and pushes to GHCR
-#     tagged as :latest and :v[Version] / :[Version].
-#   • Release Notes: Appends official container artifact tags and pull commands
-#     to the GitHub Release created by release-please.
-#   • Deploy: Triggers Coolify production deployment, polls state until completion,
-#     and outputs step summaries or issues cancellations.
-#   • Sync Stage: Merges the prod release commit back to stage to ensure branches
-#     remain aligned.
+#   • 1. Release Please Job:
+#        Runs googleapis/release-please-action.
+#        Evaluates Conventional Commits (feat(orca):, fix(orca):, chore(orca):).
+#        Automatically creates/updates Release PRs or tags releases on merge.
+#   • 2a. Sync Job (Parallel with Build & Push):
+#        Merges released "prod" branch commits back into "stage" immediately with [skip ci].
+#   • 2b. Build & Push Production Images (Parallel with Sync):
+#        Builds the 6 application services in parallel via matrix (web, api, space, admin, live, proxy)
+#        directly from the release commit on "prod" and pushes to GHCR (:latest, :vX.Y.Z, :X.Y.Z).
+#   • 3a. Release Notes Job:
+#        Appends official container artifact tags and pull commands to the GitHub Release.
+#   • 3b. Deploy Production Job:
+#        Triggers Coolify Primary Production deployment via API and polls status.
+#        Writes single unified job summary with deployment status, Docker tags, commit links, and pull command.
 #
 # What you need in GitHub Secrets:
 #   • COOLIFY_DEPLOY_URL - Full production deploy URL with uuid parameter.
 #   • COOLIFY_API_TOKEN  - Authorization bearer token for your Coolify API.
+#   • RELEASE_PLEASE_TOKEN (optional) - PAT with repo scope (falls back to GITHUB_TOKEN).
 #
 # Environment Configuration:
 #   • Targets the GitHub Environment named "prod" to resolve secrets.
@@ -104,7 +110,44 @@ jobs:
           echo "image_name=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
   # ---------------------------------------------------------------------------
-  # 2. Build & Push Production Images (Directly from Release Commit)
+  # 2a. Sync prod branch into stage (Runs immediately in parallel with image build)
+  # ---------------------------------------------------------------------------
+  sync:
+    name: Sync prod into stage
+    needs: [release-please]
+    if: (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') && success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: stage
+          fetch-depth: 0
+
+      - name: Configure Git Credentials
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Sync prod branch into stage
+        run: |
+          git fetch origin prod:prod || true
+          COMMIT_MSG="orca-chore: sync prod back to stage [skip ci]"
+
+          if git merge prod --ff-only; then
+            echo "Fast-forwarded stage to prod cleanly (0 merge commits)."
+          else
+            echo "Stage has local commits ahead of prod. Performing standard merge..."
+            git merge prod -m "$COMMIT_MSG" --no-ff
+          fi
+
+          git push origin stage
+
+  # ---------------------------------------------------------------------------
+  # 2b. Build & Push Production Images (Parallel with Sync)
   # ---------------------------------------------------------------------------
   build-push:
     name: Build & Push ${{ matrix.service }}
@@ -178,9 +221,13 @@ jobs:
           docker image prune -f
           docker builder prune -f
 
+  # ---------------------------------------------------------------------------
+  # 3a. Update Release Notes
+  # ---------------------------------------------------------------------------
   release-notes:
     name: Update GitHub Release Notes
     needs: [release-please, build-push]
+    if: (needs.build-push.result == 'success') && success()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -394,35 +441,3 @@ jobs:
             echo "| **Commit** | ${commit_link} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  sync-stage:
-    name: Sync Prod to Stage
-    needs: [release-please, deploy]
-    if: (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') && success()
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v7
-        with:
-          ref: stage
-          fetch-depth: 0
-
-      - name: Configure Git Credentials
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Merge prod branch into stage
-        run: |
-          git fetch origin prod:prod || true
-          COMMIT_MSG="orca-chore: sync prod back to stage [skip ci]"
-
-          if git merge prod --ff-only; then
-            echo "Fast-forwarded stage to prod cleanly (0 merge commits)."
-          else
-            echo "Stage has local commits ahead of prod. Performing standard merge..."
-            git merge prod -m "$COMMIT_MSG" --no-ff
-          fi
-
-          git push origin stage
