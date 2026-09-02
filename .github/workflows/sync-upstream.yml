@@ -85,9 +85,9 @@ jobs:
           echo "Detected upstream Plane version: $UPSTREAM_VER"
 
           if [ -n "$UPSTREAM_VER" ]; then
-            PR_TITLE="chore(orca): sync upstream master $UPSTREAM_VER into stage"
+            PR_TITLE="chore(orca): sync upstream $UPSTREAM_VER"
           else
-            PR_TITLE="chore(orca): sync upstream master into stage"
+            PR_TITLE="chore(orca): sync upstream"
           fi
 
           # Check if an open PR from upstream to stage already exists
