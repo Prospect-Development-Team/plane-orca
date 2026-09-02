@@ -21,6 +21,6 @@ This pull request promotes tested code changes from the **`stage`** branch to th
 > [!NOTE]
 > **Post-Merge Automation:**
 >
-> 1. Merging this PR triggers the `prod.yml` workflow, promoting staging Docker images to `latest` and triggering the production deployment in Coolify.
-> 2. `release-please` will automatically trigger to generate the correct version tag and changelog entries.
-> 3. Staging (`stage`) will be automatically synced with `prod` via background GitHub Actions.
+> 1. Merging this PR triggers `release-please` to open or update the official Release PR with the bumped version and changelog.
+> 2. Merging the Release PR triggers `prod.yml` to build production Docker images directly from `prod`, push tagged images to GHCR, and redeploy the production environment in Coolify.
+> 3. Staging (`stage`) is automatically synced back with `prod` via background GitHub Actions.

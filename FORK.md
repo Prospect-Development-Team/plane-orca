@@ -102,25 +102,25 @@ To maintain a clean and maintainable codebase:
 
 To maintain upstream compatibility while shipping custom features, all developers must follow this unified lifecycle:
 
-| Lifecycle Phase          | Action / Trigger             | Source ➡️ Target                  | Automation & Behavior                                                                                                                                   |
-| :----------------------- | :--------------------------- | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **1. Feature Dev**       | Developer codes locally      | `stage` ➡️ `feature/*`            | Code custom overrides/features. Maintain Conventional Commit prefixes.                                                                                  |
-| **2. Staging PR**        | Open PR targeting Staging    | `feature/*` ➡️ `stage`            | Auto-labeled `stage-pr` and gets the `basic.md` template checklist injected in 5s.                                                                      |
-| **3. Staging Deploy**    | Merge PR into Staging        | `stage`                           | Triggers `stage.yml` CI, runs path-based matrix builds for changed folders, and redeploys Staging environment.                                          |
-| **4. Release Candidate** | Open PR targeting Production | `stage` ➡️ `prod`                 | Auto-labeled `release-candidate`, title set with version name, and gets `release_candidate.md` checklist in 5s.                                         |
-| **5. Production Deploy** | Merge RC PR into Production  | `prod`                            | Triggers `prod.yml` to tag/promote GHCR images to `latest` and release version, and redeploys Production environment.                                   |
-| **6. Upstream Sync**     | Pull Upstream CE updates     | `upstream` ➡️ `sync/*` ➡️ `stage` | Fetch updates into mirror branch (`upstream` tracking `upstream/master`), branch off `stage` to resolve conflicts in a `sync/*` branch, and merge back. |
+| Lifecycle Phase          | Action / Trigger                 | Source ➡️ Target                  | Automation & Behavior                                                                                                                                               |
+| :----------------------- | :------------------------------- | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. Feature Dev**       | Developer codes locally          | `stage` ➡️ `feature/*`            | Code custom overrides/features. Maintain Conventional Commit prefixes.                                                                                              |
+| **2. Staging PR**        | Open PR targeting Staging        | `feature/*` ➡️ `stage`            | Auto-labeled `stage-pr` and gets the `basic.md` template checklist injected in 5s.                                                                                  |
+| **3. Staging Deploy**    | Merge PR into Staging            | `stage`                           | Triggers `stage.yml` CI, runs path-based matrix builds for changed folders, and redeploys Staging environment.                                                      |
+| **4. Release Candidate** | Open PR targeting Production     | `stage` ➡️ `prod`                 | Auto-labeled `release-candidate`, title set with version name, and gets `release_candidate.md` checklist in 5s.                                                     |
+| **5. Production Deploy** | Merge Release PR into Production | `prod`                            | Release Please creates the release PR; merging it triggers `prod.yml` to build images directly from `prod`, tag `:v[Version]` and `:latest`, and deploy Production. |
+| **6. Upstream Sync**     | Pull Upstream CE updates         | `upstream` ➡️ `sync/*` ➡️ `stage` | Fetch updates into mirror branch (`upstream` tracking `upstream/master`), branch off `stage` to resolve conflicts in a `sync/*` branch, and merge back.             |
 
 ### Automation Details (What is Managed Automatically)
 
 To save development time and maintain consistency, several processes are completely automated:
 
-| Automated Feature           | Powered By                   | Action / Trigger         | Detailed Behavior                                                                                                                             |
-| :-------------------------- | :--------------------------- | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Changelog & Releases**    | `release-please.yml`         | Push/merge to `prod`     | Parses conventional commits (`orca-*`), updates `CHANGELOG.md` with structured tables, bumps the package version, and drafts GitHub Releases. |
-| **Path-Based Building**     | `stage.yml` + `paths-filter` | PR or push to `stage`    | Analyzes changed folders and builds only the modified applications using a parallel matrix. Unchanged services are skipped.                   |
-| **PR Labeling & Templates** | `labeler.yml`                | Opening/synchronizing PR | Automatically labels PRs, renames RC PR titles with target version from `package.json`, and applies the correct template body.                |
-| **Versioned Tagging**       | `prod.yml`                   | Push/merge to `prod`     | Reads release version from `package.json`, tags promoted GHCR images with `:v[Version]` and `:latest`, and pushes them.                       |
+| Automated Feature             | Powered By                   | Action / Trigger         | Detailed Behavior                                                                                                                                             |
+| :---------------------------- | :--------------------------- | :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Changelog & Releases**      | `prod.yml` (Release Please)  | Push/merge to `prod`     | Parses conventional commits (`orca-*`), updates `CHANGELOG.md` with structured tables, bumps the package version, and drafts GitHub Releases.                 |
+| **Path-Based Building**       | `stage.yml` + `paths-filter` | PR or push to `stage`    | Analyzes changed folders and builds only the modified applications using a parallel matrix. Unchanged services are skipped.                                   |
+| **PR Labeling & Templates**   | `labeler.yml`                | Opening/synchronizing PR | Automatically labels PRs, renames RC PR titles with target version from `package.json`, and applies the correct template body.                                |
+| **Production Build & Deploy** | `prod.yml`                   | Push/merge to `prod`     | Reads release version from `package.json`, builds container artifacts directly on `prod`, tags GHCR images with `:v[Version]` and `:latest`, and pushes them. |
 
 ---
 
@@ -179,10 +179,14 @@ When staging is verified and you are ready to release to production:
    - Inspect `package.json`, read the new version number, and rename the PR title to: `orca-release: Promote Release Candidate v[Version]`.
    - Replace the description with the **`release_candidate.md`** QA checklist.
 4. **Verify release**: Reviewers verify staging builds, check off database migration safety, confirm production environment variables are updated, and sign off on the QA items.
-5. **Production Deploy**: Merging the PR into **`prod`** triggers the **`prod.yml`** workflow:
-   - Pulls the built `:stage` images from GHCR.
-   - Retags all images to `:latest` and the release version tag `:[Version]`.
-   - Pushes them to GHCR and triggers Coolify to redeploy the production server.
+5. **Release Candidate Merge & Production Deploy**:
+   - Merging the RC PR into **`prod`** triggers the **Release Please** job in **`prod.yml`**, which opens or updates the official Release PR with the bumped `package.json` and `CHANGELOG.md`.
+   - Merging the Release PR on **`prod`** (commit `chore(prod): release ...`) triggers the **`prod.yml`** workflow:
+     - Builds all 6 container images directly from the release commit on `prod` (ensuring internal `package.json` and compiled frontend bundles match the release version).
+     - Tags container images with `:latest`, `:[Version]`, and `:v[Version]`.
+     - Appends container artifact pull commands to the GitHub Release.
+     - Triggers Coolify to deploy the production server.
+     - Merges `prod` back into `stage` to keep branches synchronized.
 
 ---
 
